@@ -1,0 +1,13 @@
+build
+make/output
+punknobs_bin_v*
+infer_*
+res/infer
+res/*.tar.xz
+res/*.zip
+ci/*/log
+valgrind.log
+drmemory.log
+log
+vgcore.*
+doc/*.bkp
