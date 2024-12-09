@@ -34,9 +34,6 @@ struct punknobs_config_backend
 {
 	// custom data for initialization
 	void* data;
-	// custom call for internal use
-	void* (*callback)(
-		struct punknobs* context);
 	// function pointers for each cross-platform punknobs call
 	// lifecycle
 	void (*init)(
