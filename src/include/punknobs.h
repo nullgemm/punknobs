@@ -51,11 +51,21 @@ struct punknobs_config_backend
 	// device registration
 	void (*register)(
 		struct punknobs* context,
-		// TODO
+		intptr_t id,
 		struct punknobs_error_info* error);
 	void (*unregister)(
 		struct punknobs* context,
-		// TODO
+		intptr_t id,
+		struct punknobs_error_info* error);
+	// device getters
+	intptr_t device_get_punknobs_id(
+		struct punknobs* context,
+		void* device_info,
+		struct punknobs_error_info* error);
+	// input getters
+	intptr_t input_get_punknobs_id(
+		struct punknobs* context,
+		void* input_info,
 		struct punknobs_error_info* error);
 };
 
@@ -83,18 +93,28 @@ void punknobs_window_stop(
 // add device to input watch list
 void punknobs_register(
 	struct punknobs* context,
-	// TODO
+	intptr_t id,
 	struct punknobs_error_info* error);
 // remove device from input watch list
 void punknobs_unregister(
 	struct punknobs* context,
-	// TODO
+	intptr_t id,
 	struct punknobs_error_info* error);
 
 // ## device getters
+intptr_t punknobs_device_get_punknobs_id(
+	struct punknobs* context,
+	void* device_info,
+	struct punknobs_error_info* error);
+
 // TODO
 
 // ## input getters
+intptr_t punknobs_input_get_punknobs_id(
+	struct punknobs* context,
+	void* input_info,
+	struct punknobs_error_info* error);
+
 // TODO
 
 // ## errors

@@ -15,6 +15,8 @@ void punknobs_prepare_init_evdev_epoll(
 	config->stop = punknobs_evdev_epoll_stop;
 	config->register = punknobs_evdev_epoll_register;
 	config->unregister = punknobs_evdev_epoll_unregister;
+	config->device_get_punknobs_id = punknobs_evdev_epoll_device_get_punknobs_id;
+	config->input_get_punknobs_id = punknobs_evdev_epoll_input_get_punknobs_id;
 
 	// TODO
 
