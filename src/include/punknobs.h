@@ -107,7 +107,30 @@ intptr_t punknobs_device_get_punknobs_id(
 	void* device_info,
 	struct punknobs_error_info* error);
 
-// TODO
+char* punknobs_device_get_name(
+	struct punknobs* context,
+	void* device_info,
+	struct punknobs_error_info* error);
+
+unsigned punknobs_device_get_vendor_id(
+	struct punknobs* context,
+	void* device_info,
+	struct punknobs_error_info* error);
+
+unsigned punknobs_device_get_product_id(
+	struct punknobs* context,
+	void* device_info,
+	struct punknobs_error_info* error);
+
+bool punknobs_device_get_plugged(
+	struct punknobs* context,
+	void* device_info,
+	struct punknobs_error_info* error);
+
+void* punknobs_device_get_backend_data(
+	struct punknobs* context,
+	void* device_info,
+	struct punknobs_error_info* error);
 
 // ## input getters
 intptr_t punknobs_input_get_punknobs_id(
@@ -115,7 +138,32 @@ intptr_t punknobs_input_get_punknobs_id(
 	void* input_info,
 	struct punknobs_error_info* error);
 
-// TODO
+void punknobs_input_get_time(
+	struct punknobs* context,
+	void* input_info,
+	unsigned* sec,
+	unsigned* usec,
+	struct punknobs_error_info* error);
+
+unsigned punknobs_input_get_type(
+	struct punknobs* context,
+	void* input_info,
+	struct punknobs_error_info* error);
+
+unsigned punknobs_input_get_code(
+	struct punknobs* context,
+	void* input_info,
+	struct punknobs_error_info* error);
+
+unsigned punknobs_input_get_value(
+	struct punknobs* context,
+	void* input_info,
+	struct punknobs_error_info* error);
+
+void* punknobs_input_get_backend_data(
+	struct punknobs* context,
+	void* input_info,
+	struct punknobs_error_info* error);
 
 // ## errors
 void punknobs_error_log(
