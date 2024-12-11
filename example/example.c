@@ -29,6 +29,155 @@ static void devices_callback(
 	void* info,
 	struct punknobs_error_info* error)
 {
+	struct callbacks_data* data = device_custom_data;
+	struct punknobs* punknobs = data->punknobs;
+
+	// get all common device data
+	intptr_t id = punknobs_device_get_punknobs_id(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	char* name = punknobs_device_get_name(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	unsigned vid = punknobs_device_get_vendor_id(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	unsigned pid = punknobs_device_get_product_id(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	bool registered = punknobs_device_get_registered(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	bool plugged = punknobs_device_get_plugged(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+#if defined(PUNKNOBS_EXAMPLE_WIN) || defined(PUNKNOBS_EXAMPLE_MACOS)
+	void* backend_data = punknobs_device_get_backend_data(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+#endif
+
+	if (plugged == true)
+	{
+		printf(
+			"device plugged: \"%s\", VID: %u, PID: %u, registered: %s, punknobs id: %p\n",
+			name,
+			vid,
+			pid,
+			registered ? "yes", "no",
+			(void*) id);
+
+		if (registered == false)
+		{
+			// register this device
+			punknobs_register(punknobs, id, error);
+
+			if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+			{
+				punknobs_error_log(punknobs, &error);
+				return;
+			}
+
+			printf("registered device with punknobs id %p\n", (void*) id);
+
+			// add the device id to the save
+			if (data->ids_count >= data->ids_max)
+			{
+				data->ids_max += IDS_INCREMENT;
+				data->ids = realloc(data->ids, data->ids_max * (sizeof (int)));
+
+				if (data->ids == NULL)
+				{
+					data->ids_max = 0;
+					data->ids_count = 0;
+					fprintf(stderr, "failed reallocating device ids array\n");
+					punknobs_error_ok(error);
+					return;
+				}
+			}
+
+			data->ids[data->ids_count] = punknobs_id;
+			data->ids_count += 1;
+		}
+	}
+	else
+	{
+		printf(
+			"device removed: \"%s\", VID: %u, PID: %u, registered: %s, punknobs id: %p\n",
+			name,
+			vid,
+			pid,
+			registered ? "yes", "no",
+			(void*) id);
+
+		if (registered == true)
+		{
+			// search for this id in the save
+			size_t i = 0;
+
+			while (i < data->ids_count)
+			{
+				if (data->ids[i] == id)
+				{
+					break;
+				}
+
+				++i;
+			}
+
+			// unregister the device if it's in the save
+			if (i < data->ids_count)
+			{
+				punknobs_unregister(punknobs, id, error);
+
+				if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+				{
+					punknobs_error_log(punknobs, &error);
+					return;
+				}
+
+				printf("unregistered device with punknobs id %p\n", (void*) id);
+
+				// remove the now unregistered id from the save
+				data->ids_count -= 1;
+				data->ids[i] = data->ids[data->ids_count];
+			}
+		}
+	}
 
 	// all good
 	punknobs_error_ok(error);
@@ -96,7 +245,27 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+	// start reporting device and input events
+	punknobs_start(punknobs, &error);
+
+	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+
 	// TODO
+
+	// stop reporting device and input events
+	punknobs_window_stop(punknobs, &error);
+
+	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
 
 	// free resources correctly
 	punknobs_clean(punknobs, &error);
