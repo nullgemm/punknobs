@@ -223,6 +223,12 @@ int main(int argc, char** argv)
 {
 	struct punknobs_error_info error = {0};
 	struct punknobs_error_info error_early = {0};
+
+	// ensure utf-8 output
+#if defined(PUNKNOBS_EXAMPLE_WIN)
+	SetConsoleOutputCP(65001);
+#endif
+
 	printf("starting the common punknobs example\n");
 
 	// allocate an id save
