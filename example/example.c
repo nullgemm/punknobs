@@ -33,6 +33,7 @@ struct callbacks_data
 	intptr_t* ids;
 };
 
+#if defined(PUNKNOBS_EXAMPLE_WIN)
 BOOL WINAPI ctrl_handler(DWORD sig)
 {
 	if (sig == CTRL_C_EVENT)
@@ -43,6 +44,7 @@ BOOL WINAPI ctrl_handler(DWORD sig)
 
 	return TRUE;
 }
+#endif
 
 static void devices_callback(
 	void* devices_custom_data,
