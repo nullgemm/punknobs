@@ -16,6 +16,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(PUNKNOBS_EXAMPLE_EVDEV) || defined(PUNKNOBS_EXAMPLE_MACOS)
+#include <signal.h>
+#elif defined(PUNKNOBS_EXAMPLE_WIN)
+#include <synchapi.h>
+#include <windows.h>
+#endif
+
+#define IDS_INCREMENT 10
+
 struct callbacks_data
 {
 	struct punknobs* punknobs;
@@ -23,6 +32,17 @@ struct callbacks_data
 	size_t ids_count;
 	intptr_t* ids;
 };
+
+BOOL WINAPI ctrl_handler(DWORD sig)
+{
+	if (sig == CTRL_C_EVENT)
+	{
+		HANDLE wait_handler = OpenEvent(EVENT_MODIFY_STATE, FALSE, TEXT("ctrl_c_event"));
+		SetEvent(wait_handler);
+	}
+
+	return TRUE;
+}
 
 static void devices_callback(
 	void* devices_custom_data,
@@ -203,6 +223,16 @@ int main(int argc, char** argv)
 	struct punknobs_error_info error_early = {0};
 	printf("starting the common punknobs example\n");
 
+	// allocate an id save
+	size_t ids_max = IDS_INCREMENT;
+	int* ids = malloc(ids_max * (sizeof (int)));
+
+	if (ids == NULL)
+	{
+		fprintf(stderr, "error allocating device ids array\n");
+		return 1;
+	}
+
 	// prepare function pointers
 	struct punknobs_config_backend config = {0};
 
@@ -259,7 +289,80 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	// TODO
+	// wait for ^C on all platforms
+#if defined(PUNKNOBS_EXAMPLE_EVDEV) || defined(PUNKNOBS_EXAMPLE_MACOS)
+	sigset_t sigterm;
+	int posix_error = sigemptyset(&sigterm);
+
+	if (posix_error != 0)
+	{
+		fprintf(stderr, "error initializing sigset_t\n");
+		punknobs_stop(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+
+	posix_error = sigaddset(&sigterm, SIGINT);
+
+	if (posix_error != 0)
+	{
+		fprintf(stderr, "error initializing sigset_t\n");
+		punknobs_stop(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+
+	posix_error = sigprocmask(SIG_BLOCK, &sigterm, NULL);
+
+	if (posix_error != 0)
+	{
+		fprintf(stderr, "error blocking SIGINT\n");
+		punknobs_stop(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+
+	int sigout;
+	posix_error = sigwait(&sigterm, &sigout);
+
+	if (posix_error != 0)
+	{
+		fprintf(stderr, "error waiting for SIGINT\n");
+		punknobs_stop(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+#elif defined(PUNKNOBS_EXAMPLE_WIN)
+	HANDLE wait_handler = CreateEventA(NULL, TRUE, FALSE, TEXT("ctrl_c_event"));
+
+	if (wait_handler == NULL)
+	{
+		fprintf(stderr, "error creating signal handler event\n");
+		punknobs_stop(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+
+	BOOL win_error = SetConsoleCtrlHandler((PHANDLER_ROUTINE) ctrl_handler, TRUE);
+
+	if (win_error != TRUE)
+	{
+		fprintf(stderr, "error setting signal handler\n");
+		punknobs_stop(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+
+	DWORD wait_error = WaitForSingleObject(wait_handler, INFINITE);
+
+	if (wait_error != WAIT_OBJECT_0)
+	{
+		fprintf(stderr, "error waiting for event\n");
+		punknobs_stop(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+#endif
 
 	// stop reporting device and input events
 	punknobs_window_stop(punknobs, &error);
@@ -279,6 +382,9 @@ int main(int argc, char** argv)
 		punknobs_error_log(punknobs, &error);
 		return 1;
 	}
+
+	// release the id save
+	free(ids);
 
 	// all good
 	return 0;
