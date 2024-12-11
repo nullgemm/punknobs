@@ -101,6 +101,8 @@ static void devices_callback(
 			registered ? "yes", "no",
 			(void*) id);
 
+		// Do not register devices that were already registered
+		// (this can happen after triggering a re-enumeration).
 		if (registered == false)
 		{
 			// register this device
@@ -144,6 +146,8 @@ static void devices_callback(
 			registered ? "yes", "no",
 			(void*) id);
 
+		// Do not unregister unplugged devices that were never registered
+		// (we could decide not to handle certain devices for instance).
 		if (registered == true)
 		{
 			// search for this id in the save
