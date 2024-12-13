@@ -14,6 +14,11 @@ void punknobs_prepare_init_win(
 	struct punknobs_config_backend* config,
 	struct punknobs_error_info* error);
 
+enum punknobs_win_api punknobs_device_get_win_api(
+	struct punknobs* context,
+	void* backend_info,
+	struct punknobs_error_info* error);
+
 enum punknobs_win_api punknobs_input_get_win_api(
 	struct punknobs* context,
 	void* backend_info,
