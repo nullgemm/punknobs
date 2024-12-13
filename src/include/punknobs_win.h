@@ -10,8 +10,15 @@ enum punknobs_win_api
 	PUNKNOBS_WIN_API_COUNT,
 };
 
+struct punknobs_config_win
+{
+	unsigned delay_device_refresh;
+	unsigned delay_input_refresh;
+};
+
 void punknobs_prepare_init_win(
 	struct punknobs_config_backend* config,
+	struct punknobs_config_win* data,
 	struct punknobs_error_info* error);
 
 enum punknobs_win_api punknobs_device_get_win_api(
