@@ -113,8 +113,49 @@ static void devices_callback(
 	}
 #endif
 
+#if defined(PUNKNOBS_EXAMPLE_WIN)
+	enum punknobs_win_api api = punknobs_device_get_win_api(punknobs, backend_data, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	char* api_name = NULL;
+
+	switch (api)
+	{
+		case PUNKNOBS_WIN_API_DIRECTINPUT:
+		{
+			api_name = "DirectInput";
+			break;
+		}
+		case PUNKNOBS_WIN_API_XINPUT:
+		{
+			api_name = "XInput";
+			break;
+		}
+		default:
+		{
+			api_name = "Unknown API";
+			break;
+		}
+	}
+#endif
+
 	if (plugged == true)
 	{
+#if defined(PUNKNOBS_EXAMPLE_WIN)
+		printf(
+			"device plugged: \"%s\" (%s), VID: %u, PID: %u, registered: %s, punknobs id: %p\n",
+			name,
+			api_name,
+			vid,
+			pid,
+			registered ? "yes", "no",
+			(void*) id);
+#else
 		printf(
 			"device plugged: \"%s\", VID: %u, PID: %u, registered: %s, punknobs id: %p\n",
 			name,
@@ -122,6 +163,7 @@ static void devices_callback(
 			pid,
 			registered ? "yes", "no",
 			(void*) id);
+#endif
 
 		// Do not register devices that were already registered
 		// (this can happen after triggering a re-enumeration).
@@ -160,6 +202,16 @@ static void devices_callback(
 	}
 	else
 	{
+#if defined(PUNKNOBS_EXAMPLE_WIN)
+		printf(
+			"device plugged: \"%s\" (%s), VID: %u, PID: %u, registered: %s, punknobs id: %p\n",
+			name,
+			api_name,
+			vid,
+			pid,
+			registered ? "yes", "no",
+			(void*) id);
+#else
 		printf(
 			"device removed: \"%s\", VID: %u, PID: %u, registered: %s, punknobs id: %p\n",
 			name,
@@ -167,6 +219,7 @@ static void devices_callback(
 			pid,
 			registered ? "yes", "no",
 			(void*) id);
+#endif
 
 		// Do not unregister unplugged devices that were never registered
 		// (we could decide not to handle certain devices for instance).
