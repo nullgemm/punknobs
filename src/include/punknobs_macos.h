@@ -7,5 +7,10 @@ void punknobs_prepare_init_macos(
 	struct punknobs_config_backend* config,
 	struct punknobs_error_info* error);
 
+unsigned punknobs_input_get_macos_page(
+	struct punknobs* context,
+	void* backend_info,
+	struct punknobs_error_info* error);
+
 #endif
 

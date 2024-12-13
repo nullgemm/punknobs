@@ -51,7 +51,7 @@ static void devices_callback(
 	void* info,
 	struct punknobs_error_info* error)
 {
-	struct callbacks_data* data = device_custom_data;
+	struct callbacks_data* data = devices_custom_data;
 	struct punknobs* punknobs = data->punknobs;
 
 	// get all common device data
@@ -214,6 +214,135 @@ static void inputs_callback(
 	void* info,
 	struct punknobs_error_info* error)
 {
+	struct callbacks_data* data = inputs_custom_data;
+	struct punknobs* punknobs = data->punknobs;
+
+	// get all common input data
+	intptr_t id = punknobs_input_get_punknobs_id(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	// time
+	unsigned sec = 0;
+	unsigned usec = 0;
+
+	punknobs_input_get_time(punknobs, info, &sec, &usec, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	// input type
+	unsigned type = punknobs_input_get_type(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	// input code
+	unsigned code = punknobs_input_get_code(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	// input value
+	unsigned value = punknobs_input_get_value(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+#if defined(PUNKNOBS_EXAMPLE_WIN) || defined(PUNKNOBS_EXAMPLE_MACOS)
+	void* backend_data = punknobs_input_get_backend_data(punknobs, info, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+#endif
+
+// log input
+#if defined(PUNKNOBS_EXAMPLE_WIN)
+	enum punknobs_win_api api = punknobs_input_get_win_api(punknobs, backend_data, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	char* api_name = NULL;
+
+	switch (api)
+	{
+		case PUNKNOBS_WIN_API_DIRECTINPUT:
+		{
+			api_name = "DirectInput";
+			break;
+		}
+		case PUNKNOBS_WIN_API_XINPUT:
+		{
+			api_name = "XInput";
+			break;
+		}
+		default:
+		{
+			api_name = "Unknown API";
+			break;
+		}
+	}
+
+	printf(
+		"input for punknobs id %0p (%s), type: %u, code: %u, value: %u, time: %u s + %u us\n",
+		(void*) id,
+		api_name,
+		type,
+		code,
+		value,
+		sec,
+		usec);
+#elif defined(PUNKNOBS_EXAMPLE_MACOS)
+	unsigned page = punknobs_input_get_macos_page(punknobs, backend_data, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		return;
+	}
+
+	printf(
+		"input for punknobs id %0p, type: %u, page: %u, code: %u, value: %u, time: %u s + %u us\n",
+		(void*) id,
+		type,
+		page,
+		code,
+		value,
+		sec,
+		usec);
+#else
+	printf(
+		"input for punknobs id %0p, type: %u, code: %u, value: %u, time: %u s + %u us\n",
+		(void*) id,
+		type,
+		code,
+		value,
+		sec,
+		usec);
+#endif
 
 	// all good
 	punknobs_error_ok(error);
