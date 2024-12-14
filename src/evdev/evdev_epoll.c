@@ -110,6 +110,7 @@ intptr_t punknobs_evdev_epoll_device_get_punknobs_id(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
+	punknobs_error_ok(error);
 	return info->punknobs_id;
 }
 
@@ -122,6 +123,7 @@ char* punknobs_evdev_epoll_device_get_name(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
+	punknobs_error_ok(error);
 	return info->name;
 }
 
@@ -134,6 +136,7 @@ unsigned punknobs_evdev_epoll_device_get_vendor_id(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
+	punknobs_error_ok(error);
 	return info->vendor_id;
 }
 
@@ -146,6 +149,7 @@ unsigned punknobs_evdev_epoll_device_get_product_id(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
+	punknobs_error_ok(error);
 	return info->product_id;
 }
 
@@ -158,6 +162,7 @@ bool punknobs_evdev_epoll_device_get_plugged(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
+	punknobs_error_ok(error);
 	return info->plugged;
 }
 
@@ -170,6 +175,7 @@ bool punknobs_evdev_epoll_device_get_registered(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
+	punknobs_error_ok(error);
 	return info->registered;
 }
 
@@ -183,6 +189,7 @@ intptr_t punknobs_evdev_epoll_input_get_punknobs_id(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_input_info* info = input_info;
 
+	punknobs_error_ok(error);
 	return info->punknobs_id;
 }
 
@@ -199,6 +206,8 @@ void punknobs_evdev_epoll_input_get_time(
 
 	*sec = info->input_event->input_event_sec;
 	*usec = info->input_event->input_event_usec;
+
+	punknobs_error_ok(error);
 }
 
 unsigned punknobs_evdev_epoll_input_get_type(
@@ -210,6 +219,7 @@ unsigned punknobs_evdev_epoll_input_get_type(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_input_info* info = input_info;
 
+	punknobs_error_ok(error);
 	return info->input_event->type;
 }
 
@@ -222,6 +232,7 @@ unsigned punknobs_evdev_epoll_input_get_code(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_input_info* info = input_info;
 
+	punknobs_error_ok(error);
 	return info->input_event->code;
 }
 
@@ -234,6 +245,7 @@ unsigned punknobs_evdev_epoll_input_get_value(
 	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_input_info* info = input_info;
 
+	punknobs_error_ok(error);
 	return info->input_event->value;
 }
 
