@@ -25,13 +25,6 @@ struct evdev_epoll_input_info
 {
 	intptr_t punknobs_id;
 	struct input_event* input_event;
-#if 0
-	unsigned sec;
-	unsigned usec;
-	unsigned type;
-	unsigned code;
-	unsigned value;
-#endif
 };
 
 struct evdev_epoll_backend
