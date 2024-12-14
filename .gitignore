@@ -1,6 +1,6 @@
 build
 make/output
-punknobs_bin_v*
+punknobs_bin_*
 infer_*
 res/infer
 res/*.tar.xz
