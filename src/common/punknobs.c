@@ -172,15 +172,6 @@ bool punknobs_device_get_plugged(
 	return context->backend_config.device_get_plugged(context, device_info, error);
 }
 
-void* punknobs_device_get_backend_data(
-	struct punknobs* context,
-	void* device_info,
-	struct punknobs_error_info* error)
-{
-	// error always set
-	return context->backend_config.device_get_backend_data(context, device_info, error);
-}
-
 intptr_t punknobs_input_get_punknobs_id(
 	struct punknobs* context,
 	void* input_info,
@@ -227,13 +218,4 @@ unsigned punknobs_input_get_value(
 {
 	// error always set
 	return context->backend_config.input_get_value(context, input_info, error);
-}
-
-void* punknobs_input_get_backend_data(
-	struct punknobs* context,
-	void* input_info,
-	struct punknobs_error_info* error)
-{
-	// error always set
-	return context->backend_config.input_get_backend_data(context, input_info, error);
 }

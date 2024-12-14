@@ -92,10 +92,6 @@ struct punknobs_config_backend
 		struct punknobs* context,
 		void* device_info,
 		struct punknobs_error_info* error);
-	void* (*device_get_backend_data)(
-		struct punknobs* context,
-		void* device_info,
-		struct punknobs_error_info* error);
 	// input getters
 	intptr_t (*input_get_punknobs_id)(
 		struct punknobs* context,
@@ -116,10 +112,6 @@ struct punknobs_config_backend
 		void* input_info,
 		struct punknobs_error_info* error);
 	unsigned (*input_get_value)(
-		struct punknobs* context,
-		void* input_info,
-		struct punknobs_error_info* error);
-	void* (*input_get_backend_data)(
 		struct punknobs* context,
 		void* input_info,
 		struct punknobs_error_info* error);
@@ -221,11 +213,6 @@ bool punknobs_device_get_plugged(
 	void* device_info,
 	struct punknobs_error_info* error);
 
-void* punknobs_device_get_backend_data(
-	struct punknobs* context,
-	void* device_info,
-	struct punknobs_error_info* error);
-
 // ## input getters
 intptr_t punknobs_input_get_punknobs_id(
 	struct punknobs* context,
@@ -250,11 +237,6 @@ unsigned punknobs_input_get_code(
 	struct punknobs_error_info* error);
 
 unsigned punknobs_input_get_value(
-	struct punknobs* context,
-	void* input_info,
-	struct punknobs_error_info* error);
-
-void* punknobs_input_get_backend_data(
 	struct punknobs* context,
 	void* input_info,
 	struct punknobs_error_info* error);

@@ -4,28 +4,6 @@
 #include "include/punknobs.h"
 #include "common/punknobs_error.h"
 
-struct punknobs_device_backend
-{
-	void* backend_data;
-	intptr_t punknobs_id;
-	char* name;
-	unsigned vendor_id;
-	unsigned product_id;
-	bool plugged;
-	bool registered;
-};
-
-struct punknobs_input_backend
-{
-	void* backend_data;
-	intptr_t punknobs_id;
-	unsigned sec;
-	unsigned usec;
-	unsigned type;
-	unsigned code;
-	unsigned value;
-};
-
 struct punknobs
 {
 	// device callback

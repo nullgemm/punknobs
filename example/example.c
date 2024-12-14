@@ -107,18 +107,8 @@ static void devices_callback(
 		return;
 	}
 
-#if defined(PUNKNOBS_EXAMPLE_WIN) || defined(PUNKNOBS_EXAMPLE_MACOS)
-	void* backend_data = punknobs_device_get_backend_data(punknobs, info, error);
-
-	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
-	{
-		punknobs_error_log(punknobs, error);
-		return;
-	}
-#endif
-
 #if defined(PUNKNOBS_EXAMPLE_WIN)
-	enum punknobs_win_api api = punknobs_win_device_get_api(punknobs, backend_data, error);
+	enum punknobs_win_api api = punknobs_win_device_get_api(punknobs, info, error);
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
@@ -322,19 +312,9 @@ static void inputs_callback(
 		return;
 	}
 
-#if defined(PUNKNOBS_EXAMPLE_WIN) || defined(PUNKNOBS_EXAMPLE_MACOS)
-	void* backend_data = punknobs_input_get_backend_data(punknobs, info, error);
-
-	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
-	{
-		punknobs_error_log(punknobs, error);
-		return;
-	}
-#endif
-
 // log input
 #if defined(PUNKNOBS_EXAMPLE_WIN)
-	enum punknobs_win_api api = punknobs_win_input_get_api(punknobs, backend_data, error);
+	enum punknobs_win_api api = punknobs_win_input_get_api(punknobs, info, error);
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
@@ -373,7 +353,7 @@ static void inputs_callback(
 		sec,
 		usec);
 #elif defined(PUNKNOBS_EXAMPLE_MACOS)
-	unsigned page = punknobs_input_get_macos_page(punknobs, backend_data, error);
+	unsigned page = punknobs_macos_input_get_page(punknobs, info, error);
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
