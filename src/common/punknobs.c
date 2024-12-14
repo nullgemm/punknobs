@@ -120,7 +120,7 @@ void punknobs_reenumerate(
 
 intptr_t punknobs_device_get_punknobs_id(
 	struct punknobs* context,
-	void* device_info,
+	struct punknobs_device_backend* device_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -129,7 +129,7 @@ intptr_t punknobs_device_get_punknobs_id(
 
 char* punknobs_device_get_name(
 	struct punknobs* context,
-	void* device_info,
+	struct punknobs_device_backend* device_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -138,7 +138,7 @@ char* punknobs_device_get_name(
 
 unsigned punknobs_device_get_vendor_id(
 	struct punknobs* context,
-	void* device_info,
+	struct punknobs_device_backend* device_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -147,7 +147,7 @@ unsigned punknobs_device_get_vendor_id(
 
 unsigned punknobs_device_get_product_id(
 	struct punknobs* context,
-	void* device_info,
+	struct punknobs_device_backend* device_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -156,7 +156,7 @@ unsigned punknobs_device_get_product_id(
 
 bool punknobs_device_get_registered(
 	struct punknobs* context,
-	void* device_info,
+	struct punknobs_device_backend* device_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -165,7 +165,7 @@ bool punknobs_device_get_registered(
 
 bool punknobs_device_get_plugged(
 	struct punknobs* context,
-	void* device_info,
+	struct punknobs_device_backend* device_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -174,7 +174,7 @@ bool punknobs_device_get_plugged(
 
 void* punknobs_device_get_backend_data(
 	struct punknobs* context,
-	void* device_info,
+	struct punknobs_device_backend* device_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -183,7 +183,7 @@ void* punknobs_device_get_backend_data(
 
 intptr_t punknobs_input_get_punknobs_id(
 	struct punknobs* context,
-	void* input_info,
+	struct punknobs_input_backend* input_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -192,7 +192,7 @@ intptr_t punknobs_input_get_punknobs_id(
 
 void punknobs_input_get_time(
 	struct punknobs* context,
-	void* input_info,
+	struct punknobs_input_backend* input_info,
 	unsigned* sec,
 	unsigned* usec,
 	struct punknobs_error_info* error)
@@ -204,7 +204,7 @@ void punknobs_input_get_time(
 
 unsigned punknobs_input_get_type(
 	struct punknobs* context,
-	void* input_info,
+	struct punknobs_input_backend* input_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -213,7 +213,7 @@ unsigned punknobs_input_get_type(
 
 unsigned punknobs_input_get_code(
 	struct punknobs* context,
-	void* input_info,
+	struct punknobs_input_backend* input_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -222,7 +222,7 @@ unsigned punknobs_input_get_code(
 
 unsigned punknobs_input_get_value(
 	struct punknobs* context,
-	void* input_info,
+	struct punknobs_input_backend* input_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
@@ -231,7 +231,7 @@ unsigned punknobs_input_get_value(
 
 void* punknobs_input_get_backend_data(
 	struct punknobs* context,
-	void* input_info,
+	struct punknobs_input_backend* input_info,
 	struct punknobs_error_info* error)
 {
 	// error always set
