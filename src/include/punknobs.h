@@ -26,7 +26,14 @@ enum punknobs_error
 	// TODO
 	// special
 	PUNKNOBS_ERROR_COUNT,
-}
+};
+
+struct punknobs_error_info
+{
+	enum punknobs_error code;
+	const char* file;
+	unsigned line;
+};
 
 // ## backend configuration structure
 // depends on most of the above
@@ -49,11 +56,11 @@ struct punknobs_config_backend
 		struct punknobs* context,
 		struct punknobs_error_info* error);
 	// device registration
-	void (*register)(
+	void (*register_add)(
 		struct punknobs* context,
 		intptr_t id,
 		struct punknobs_error_info* error);
-	void (*unregister)(
+	void (*register_del)(
 		struct punknobs* context,
 		intptr_t id,
 		struct punknobs_error_info* error);
@@ -118,6 +125,24 @@ struct punknobs_config_backend
 		struct punknobs_error_info* error);
 };
 
+struct punknobs_config_device_callback
+{
+	void* data;
+	void (*handler)(
+		void* devices_custom_data,
+		void* info,
+		struct punknobs_error_info* error);
+};
+
+struct punknobs_config_input_callback
+{
+	void* data;
+	void (*handler)(
+		void* inputs_custom_data,
+		void* info,
+		struct punknobs_error_info* error);
+};
+
 // # cross-platform, cross-backend
 // ## lifecycle (N.B.: the event loop is always started on a separate thread)
 // allocate base resources and make initial checks
@@ -129,23 +154,34 @@ void punknobs_clean(
 	struct punknobs* context,
 	struct punknobs_error_info* error);
 
+// set device callback
+void punknobs_set_device_callback(
+	struct punknobs* context,
+	struct punknobs_config_device_callback* config_device,
+	struct punknobs_error_info* error);
+// set input callback
+void punknobs_set_input_callback(
+	struct punknobs* context,
+	struct punknobs_config_input_callback* config_input,
+	struct punknobs_error_info* error);
+
 // start reporting device and input events
 void punknobs_start(
 	struct punknobs* context,
 	struct punknobs_error_info* error);
 // stop reporting device and input events
-void punknobs_window_stop(
+void punknobs_stop(
 	struct punknobs* context,
 	struct punknobs_error_info* error);
 
 // ## device registration (can always be called)
 // add device to input watch list
-void punknobs_register(
+void punknobs_register_add(
 	struct punknobs* context,
 	intptr_t id,
 	struct punknobs_error_info* error);
 // remove device from input watch list
-void punknobs_unregister(
+void punknobs_register_del(
 	struct punknobs* context,
 	intptr_t id,
 	struct punknobs_error_info* error);

@@ -1,3 +1,7 @@
+#if defined(PUNKNOBS_EXAMPLE_EVDEV)
+#define _XOPEN_SOURCE 700
+#endif
+
 #include "punknobs.h"
 
 #if defined(PUNKNOBS_EXAMPLE_EVDEV_EPOLL)
@@ -59,7 +63,7 @@ static void devices_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -67,7 +71,7 @@ static void devices_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -75,7 +79,7 @@ static void devices_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -83,7 +87,7 @@ static void devices_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -91,7 +95,7 @@ static void devices_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -99,7 +103,7 @@ static void devices_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -108,17 +112,17 @@ static void devices_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 #endif
 
 #if defined(PUNKNOBS_EXAMPLE_WIN)
-	enum punknobs_win_api api = punknobs_device_get_win_api(punknobs, backend_data, error);
+	enum punknobs_win_api api = punknobs_win_device_get_api(punknobs, backend_data, error);
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -153,7 +157,7 @@ static void devices_callback(
 			api_name,
 			vid,
 			pid,
-			registered ? "yes", "no",
+			registered ? "yes" : "no",
 			(void*) id);
 #else
 		printf(
@@ -161,7 +165,7 @@ static void devices_callback(
 			name,
 			vid,
 			pid,
-			registered ? "yes", "no",
+			registered ? "yes" : "no",
 			(void*) id);
 #endif
 
@@ -170,11 +174,11 @@ static void devices_callback(
 		if (registered == false)
 		{
 			// register this device
-			punknobs_register(punknobs, id, error);
+			punknobs_register_add(punknobs, id, error);
 
 			if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 			{
-				punknobs_error_log(punknobs, &error);
+				punknobs_error_log(punknobs, error);
 				return;
 			}
 
@@ -196,7 +200,7 @@ static void devices_callback(
 				}
 			}
 
-			data->ids[data->ids_count] = punknobs_id;
+			data->ids[data->ids_count] = id;
 			data->ids_count += 1;
 		}
 	}
@@ -209,7 +213,7 @@ static void devices_callback(
 			api_name,
 			vid,
 			pid,
-			registered ? "yes", "no",
+			registered ? "yes" : "no",
 			(void*) id);
 #else
 		printf(
@@ -217,7 +221,7 @@ static void devices_callback(
 			name,
 			vid,
 			pid,
-			registered ? "yes", "no",
+			registered ? "yes" : "no",
 			(void*) id);
 #endif
 
@@ -241,11 +245,11 @@ static void devices_callback(
 			// unregister the device if it's in the save
 			if (i < data->ids_count)
 			{
-				punknobs_unregister(punknobs, id, error);
+				punknobs_register_del(punknobs, id, error);
 
 				if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 				{
-					punknobs_error_log(punknobs, &error);
+					punknobs_error_log(punknobs, error);
 					return;
 				}
 
@@ -275,7 +279,7 @@ static void inputs_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -287,7 +291,7 @@ static void inputs_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -296,7 +300,7 @@ static void inputs_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -305,7 +309,7 @@ static void inputs_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -314,7 +318,7 @@ static void inputs_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -323,18 +327,18 @@ static void inputs_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 #endif
 
 // log input
 #if defined(PUNKNOBS_EXAMPLE_WIN)
-	enum punknobs_win_api api = punknobs_input_get_win_api(punknobs, backend_data, error);
+	enum punknobs_win_api api = punknobs_win_input_get_api(punknobs, backend_data, error);
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
@@ -360,7 +364,7 @@ static void inputs_callback(
 	}
 
 	printf(
-		"input for punknobs id %0p (%s), type: %u, code: %u, value: %u, time: %u s + %u us\n",
+		"input for punknobs id %p (%s), type: %u, code: %u, value: %u, time: %u s + %u us\n",
 		(void*) id,
 		api_name,
 		type,
@@ -373,12 +377,12 @@ static void inputs_callback(
 
 	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 	{
-		punknobs_error_log(punknobs, &error);
+		punknobs_error_log(punknobs, error);
 		return;
 	}
 
 	printf(
-		"input for punknobs id %0p, type: %u, page: %u, code: %u, value: %u, time: %u s + %u us\n",
+		"input for punknobs id %p, type: %u, page: %u, code: %u, value: %u, time: %u s + %u us\n",
 		(void*) id,
 		type,
 		page,
@@ -388,7 +392,7 @@ static void inputs_callback(
 		usec);
 #else
 	printf(
-		"input for punknobs id %0p, type: %u, code: %u, value: %u, time: %u s + %u us\n",
+		"input for punknobs id %p, type: %u, code: %u, value: %u, time: %u s + %u us\n",
 		(void*) id,
 		type,
 		code,
@@ -431,12 +435,6 @@ int main(int argc, char** argv)
 #elif defined(PUNKNOBS_EXAMPLE_EVDEV_POLL)
 	punknobs_prepare_init_evdev_poll(&config, &error_early);
 #elif defined(PUNKNOBS_EXAMPLE_WIN)
-	struct punknobs_config_win data =
-	{
-		.delay_device_refresh = 3000;
-		.delay_input_refresh = 16;
-	};
-
 	punknobs_prepare_init_win(&config, &data, &error_early);
 #elif defined(PUNKNOBS_EXAMPLE_MACOS)
 	punknobs_prepare_init_macos(&config, &error_early);
@@ -468,6 +466,65 @@ int main(int argc, char** argv)
 
 	// The punknobs initialization had failed, make it known now if the backend
 	// initialization that happened before went fine.
+	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+
+#if defined(PUNKNOBS_EXAMPLE_WIN)
+	// configure windows polling delays
+	struct punknobs_win_delays delays =
+	{
+		.delay_device_refresh = 3000;
+		.delay_input_refresh = 16;
+	};
+
+	punknobs_win_set_delays(punknobs, &delays, &error);
+
+	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+#endif
+
+	// register device and input handlers
+	struct callbacks_data callback_data =
+	{
+		.punknobs = punknobs,
+		.ids_max = 0,
+		.ids_count = 0,
+		.ids = NULL,
+	};
+
+	// devices
+	struct punknobs_config_device_callback config_device =
+	{
+		.data = &callback_data,
+		.handler = devices_callback,
+	};
+
+	punknobs_set_device_callback(punknobs, &config_device, &error);
+
+	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+	{
+		punknobs_error_log(punknobs, &error);
+		punknobs_clean(punknobs, &error);
+		return 1;
+	}
+
+	// inputs
+	struct punknobs_config_input_callback config_input =
+	{
+		.data = &callback_data,
+		.handler = inputs_callback,
+	};
+
+	punknobs_set_input_callback(punknobs, &config_input, &error);
+
 	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
 	{
 		punknobs_error_log(punknobs, &error);
@@ -561,7 +618,7 @@ int main(int argc, char** argv)
 #endif
 
 	// stop reporting device and input events
-	punknobs_window_stop(punknobs, &error);
+	punknobs_stop(punknobs, &error);
 
 	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
 	{

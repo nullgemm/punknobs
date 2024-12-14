@@ -15,8 +15,8 @@ void punknobs_prepare_init_win(
 	config->clean = punknobs_win_clean;
 	config->start = punknobs_win_start;
 	config->stop = punknobs_win_stop;
-	config->register = punknobs_win_register;
-	config->unregister = punknobs_win_unregister;
+	config->register_add = punknobs_win_register_add;
+	config->register_del = punknobs_win_register_del;
 	config->reenumerate = punknobs_win_reenumerate;
 
 	config->device_get_punknobs_id = punknobs_win_device_get_punknobs_id;

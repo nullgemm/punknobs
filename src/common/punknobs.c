@@ -23,7 +23,7 @@ struct punknobs* punknobs_init(
 	}
 
 	// zero-initialize the context
-	struct globuf zero = {0};
+	struct punknobs zero = {0};
 	*context = zero;
 
 	// initialize everything with default values
@@ -31,7 +31,7 @@ struct punknobs* punknobs_init(
 	context->device_callback = NULL;
 	context->inputs_custom_data = NULL;
 	context->inputs_callback = NULL;
-	context->backend_config = *config
+	context->backend_config = *config;
 	context->backend_context = NULL;
 
 	punknobs_error_init(context);
@@ -53,6 +53,24 @@ void punknobs_clean(
 	// error always set
 }
 
+void punknobs_set_device_callback(
+	struct punknobs* context,
+	struct punknobs_config_device_callback* config_device,
+	struct punknobs_error_info* error)
+{
+	context->device_custom_data = config_device->data;
+	context->device_callback = config_device->handler;
+}
+
+void punknobs_set_input_callback(
+	struct punknobs* context,
+	struct punknobs_config_input_callback* config_input,
+	struct punknobs_error_info* error)
+{
+	context->inputs_custom_data = config_input->data;
+	context->inputs_callback = config_input->handler;
+}
+
 void punknobs_start(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
@@ -62,7 +80,7 @@ void punknobs_start(
 	// error always set
 }
 
-void punknobs_window_stop(
+void punknobs_stop(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
@@ -71,22 +89,22 @@ void punknobs_window_stop(
 	// error always set
 }
 
-void punknobs_register(
+void punknobs_register_add(
 	struct punknobs* context,
 	intptr_t id,
 	struct punknobs_error_info* error)
 {
-	context->backend_config.register(context, id, error);
+	context->backend_config.register_add(context, id, error);
 
 	// error always set
 }
 
-void punknobs_unregister(
+void punknobs_register_del(
 	struct punknobs* context,
 	intptr_t id,
 	struct punknobs_error_info* error)
 {
-	context->backend_config.unregister(context, id, error);
+	context->backend_config.register_del(context, id, error);
 
 	// error always set
 }

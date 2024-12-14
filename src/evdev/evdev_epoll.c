@@ -27,7 +27,7 @@ void punknobs_evdev_epoll_init(
 
 	if (backend == NULL)
 	{
-		punknobs_error_throw(context, &error, PUNKNOBS_ERROR_ALLOC);
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
 		return;
 	}
 
@@ -39,6 +39,9 @@ void punknobs_evdev_epoll_init(
 	context->backend_context = backend;
 
 	// initialize everything with default values
+	backend->punknobs = context;
+	backend->closed = false;
+
 	// TODO
 
 	// all good
@@ -49,10 +52,12 @@ void punknobs_evdev_epoll_clean(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
-	struct evdev_epoll_backend* backend = context->backend_data;
+	struct evdev_epoll_backend* backend = context->backend_context;
 
 	// free the backend
 	free(backend);
+
+	// TODO
 
 	// all good
 	punknobs_error_ok(error);
@@ -62,32 +67,37 @@ void punknobs_evdev_epoll_start(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
+	// TODO
 }
 
 void punknobs_evdev_epoll_stop(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
+	// TODO
 }
 
-void punknobs_evdev_epoll_register(
+void punknobs_evdev_epoll_register_add(
 	struct punknobs* context,
 	intptr_t id,
 	struct punknobs_error_info* error)
 {
+	// TODO
 }
 
-void punknobs_evdev_epoll_unregister(
+void punknobs_evdev_epoll_register_del(
 	struct punknobs* context,
 	intptr_t id,
 	struct punknobs_error_info* error)
 {
+	// TODO
 }
 
 void punknobs_evdev_epoll_reenumerate(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
+	// TODO
 }
 
 // device getters
@@ -96,6 +106,8 @@ intptr_t punknobs_evdev_epoll_device_get_punknobs_id(
 	void* device_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return 0;
 }
 
 char* punknobs_evdev_epoll_device_get_name(
@@ -103,6 +115,8 @@ char* punknobs_evdev_epoll_device_get_name(
 	void* device_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return NULL;
 }
 
 unsigned punknobs_evdev_epoll_device_get_vendor_id(
@@ -110,6 +124,8 @@ unsigned punknobs_evdev_epoll_device_get_vendor_id(
 	void* device_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return 0;
 }
 
 unsigned punknobs_evdev_epoll_device_get_product_id(
@@ -117,6 +133,8 @@ unsigned punknobs_evdev_epoll_device_get_product_id(
 	void* device_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return 0;
 }
 
 bool punknobs_evdev_epoll_device_get_plugged(
@@ -124,6 +142,8 @@ bool punknobs_evdev_epoll_device_get_plugged(
 	void* device_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return false;
 }
 
 bool punknobs_evdev_epoll_device_get_registered(
@@ -131,6 +151,8 @@ bool punknobs_evdev_epoll_device_get_registered(
 	void* device_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return false;
 }
 
 void* punknobs_evdev_epoll_device_get_backend_data(
@@ -138,51 +160,64 @@ void* punknobs_evdev_epoll_device_get_backend_data(
 	void* device_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return NULL;
 }
 
 // input getters
-intptr_t punknobs_evdev_epoll_input_get_punknobs_id;
+intptr_t punknobs_evdev_epoll_input_get_punknobs_id(
 	struct punknobs* context,
 	void* input_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return 0;
 }
 
-void punknobs_evdev_epoll_input_get_time;
+void punknobs_evdev_epoll_input_get_time(
 	struct punknobs* context,
 	void* input_info,
 	unsigned* sec,
 	unsigned* usec,
 	struct punknobs_error_info* error)
 {
+	// TODO
 }
 
-unsigned punknobs_evdev_epoll_input_get_type;
+unsigned punknobs_evdev_epoll_input_get_type(
 	struct punknobs* context,
 	void* input_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return 0;
 }
 
-unsigned punknobs_evdev_epoll_input_get_code;
+unsigned punknobs_evdev_epoll_input_get_code(
 	struct punknobs* context,
 	void* input_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return 0;
 }
 
-unsigned punknobs_evdev_epoll_input_get_value;
+unsigned punknobs_evdev_epoll_input_get_value(
 	struct punknobs* context,
 	void* input_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return 0;
 }
 
-void* punknobs_evdev_epoll_input_get_backend_data;
+void* punknobs_evdev_epoll_input_get_backend_data(
 	struct punknobs* context,
 	void* input_info,
 	struct punknobs_error_info* error)
 {
+	// TODO
+	return NULL;
 }
 
 // configurator
@@ -196,8 +231,8 @@ void punknobs_prepare_init_evdev_epoll(
 	config->clean = punknobs_evdev_epoll_clean;
 	config->start = punknobs_evdev_epoll_start;
 	config->stop = punknobs_evdev_epoll_stop;
-	config->register = punknobs_evdev_epoll_register;
-	config->unregister = punknobs_evdev_epoll_unregister;
+	config->register_add = punknobs_evdev_epoll_register_add;
+	config->register_del = punknobs_evdev_epoll_register_del;
 	config->reenumerate = punknobs_evdev_epoll_reenumerate;
 
 	config->device_get_punknobs_id = punknobs_evdev_epoll_device_get_punknobs_id;

@@ -45,7 +45,7 @@ struct punknobs
 		struct punknobs_error_info* error);
 
 	// backends
-	struct punknobs_backend_config backend_config;
+	struct punknobs_config_backend backend_config;
 	void* backend_context;
 
 	// error handling

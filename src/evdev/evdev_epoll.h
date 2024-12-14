@@ -13,6 +13,8 @@
 
 struct evdev_epoll_backend
 {
+	struct punknobs* punknobs;
+	bool closed;
 };
 
 #endif

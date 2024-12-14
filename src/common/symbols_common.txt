@@ -1,9 +1,11 @@
 punknobs_init
 punknobs_clean
+punknobs_set_device_callback
+punknobs_set_input_callback
 punknobs_start
-punknobs_window_stop
-punknobs_register
-punknobs_unregister
+punknobs_stop
+punknobs_register_add
+punknobs_register_del
 punknobs_reenumerate
 punknobs_device_get_punknobs_id
 punknobs_device_get_name
@@ -20,7 +22,8 @@ punknobs_input_get_value
 punknobs_input_get_backend_data
 punknobs_error_log
 punknobs_error_get_msg
-punknobs_error punknobs_error_get_code
+punknobs_error_get_code
 punknobs_error_get_file
 punknobs_error_get_line
 punknobs_error_ok
+punknobs_error_throw_extra
