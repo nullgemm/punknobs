@@ -68,6 +68,8 @@ void punknobs_evdev_epoll_start(
 	struct punknobs_error_info* error)
 {
 	// TODO
+
+	punknobs_error_ok(error);
 }
 
 void punknobs_evdev_epoll_stop(
@@ -75,6 +77,8 @@ void punknobs_evdev_epoll_stop(
 	struct punknobs_error_info* error)
 {
 	// TODO
+
+	punknobs_error_ok(error);
 }
 
 void punknobs_evdev_epoll_register_add(
@@ -83,6 +87,8 @@ void punknobs_evdev_epoll_register_add(
 	struct punknobs_error_info* error)
 {
 	// TODO
+
+	punknobs_error_ok(error);
 }
 
 void punknobs_evdev_epoll_register_del(
@@ -91,6 +97,8 @@ void punknobs_evdev_epoll_register_del(
 	struct punknobs_error_info* error)
 {
 	// TODO
+
+	punknobs_error_ok(error);
 }
 
 void punknobs_evdev_epoll_reenumerate(
@@ -98,6 +106,8 @@ void punknobs_evdev_epoll_reenumerate(
 	struct punknobs_error_info* error)
 {
 	// TODO
+
+	punknobs_error_ok(error);
 }
 
 // device getters
