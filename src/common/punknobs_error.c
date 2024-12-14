@@ -28,7 +28,27 @@ void punknobs_error_init(
 		"out-of-bounds index";
 	log[PUNKNOBS_ERROR_DOMAIN] =
 		"invalid domain";
-	// TODO
+	// evdev
+	log[PUNKNOBS_ERROR_POSIX_PIPE_CREATE] =
+		"failed pipe creation";
+	log[PUNKNOBS_ERROR_POSIX_FCNTL] =
+		"failed fcntl";
+	log[PUNKNOBS_ERROR_POSIX_CLOSE] =
+		"failed closing file descriptor";
+	log[PUNKNOBS_ERROR_POSIX_MUTEX_ATTR_INIT] =
+		"failed initializing mutex attributes";
+	log[PUNKNOBS_ERROR_POSIX_MUTEX_ATTR_SETTYPE] =
+		"failed setting mutex attributes type";
+	log[PUNKNOBS_ERROR_POSIX_MUTEX_ATTR_DESTROY] =
+		"failed destroying mutex attributes";
+	log[PUNKNOBS_ERROR_POSIX_MUTEX_INIT] =
+		"failed initializing mutex";
+	log[PUNKNOBS_ERROR_POSIX_MUTEX_DESTROY] =
+		"failed destroying mutex";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_CREATE] =
+		"failed creating epoll structure";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_ADD] =
+		"failed adding descriptor to epoll";
 #endif
 }
 

@@ -133,7 +133,7 @@ esac
 
 ninja_file=lib_evdev.ninja
 src+=("src/evdev/evdev_""$poll"".c")
-#src+=("src/evdev/evdev_""$poll""_helpers.c") TODO enable
+src+=("src/evdev/evdev_""$poll""_helpers.c")
 
 # save symbols file path
 symbols_file="src/evdev/symbols_evdev.txt"

@@ -5,10 +5,19 @@
 
 #include "common/punknobs_private.h"
 #include "evdev/evdev_epoll.h"
+#include "evdev/evdev_epoll_helpers.h"
 
+#include <fcntl.h>
+#include <semaphore.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+#include <linux/input.h>
+#include <pthread.h>
 
 // *heavy sigh*
 #if defined(_POSIX_MONOTONIC_CLOCK)
@@ -22,6 +31,8 @@ void punknobs_evdev_epoll_init(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
+	int error_posix = 0;
+
 	// allocate the backend
 	struct evdev_epoll_backend* backend = malloc(sizeof (struct evdev_epoll_backend));
 
@@ -42,7 +53,191 @@ void punknobs_evdev_epoll_init(
 	backend->punknobs = context;
 	backend->closed = false;
 
-	// TODO
+	backend->device_loop_epollfd = -1;
+	backend->inotify_update = NULL;
+	backend->inotify_fd = -1;
+	backend->inotify_wd = -1;
+
+	backend->input_loop_epollfd = -1;
+	backend->input_removed = NULL;
+	backend->input_loop_fds = NULL;
+	backend->input_loop_last = NULL;
+
+	backend->devices_pending = NULL;
+	backend->devices_pending_count = 0;
+	backend->devices_pending_max = 0;
+
+	// create pending devices array
+	backend->devices_pending_count = 0;
+	backend->devices_pending_max = DEVICE_PENDING_MULTIPLE;
+
+	backend->devices_pending =
+		malloc(backend->devices_pending_max * (sizeof (char*)));
+
+	if (backend->devices_pending == NULL)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
+		return;
+	}
+
+	// create a self-pipe to be able to interrupt polling in the input loop
+	error_posix = pipe(backend->pipe_fds_input_loop);
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_POSIX_PIPE_CREATE);
+		return;
+	}
+
+	// set non-block on pipe fds
+	int flags_input_loop = fcntl(backend->pipe_fds_input_loop[0], F_GETFL);
+
+	if (flags_input_loop == -1)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_POSIX_FCNTL);
+		return;
+	}
+
+	error_posix =
+		fcntl(
+			backend->pipe_fds_input_loop[0],
+			F_SETFL,
+			flags_input_loop | O_NONBLOCK);
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_POSIX_FCNTL);
+		return;
+	}
+
+	// create input epoll instances
+	backend->input_loop_epollfd = epoll_create(DEVICE_LIST_MULTIPLE);
+
+	if (backend->input_loop_epollfd == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_CREATE);
+		return;
+	}
+
+	// allocate input info linked list first item structure
+	backend->input_loop_fds =
+		malloc(sizeof (struct evdev_epoll_info));
+
+	if (backend->input_loop_fds == NULL)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
+		return;
+	}
+
+	// save pipe fd in watched input devices fds
+	backend->input_loop_fds->epoll_event.data.ptr = backend->input_loop_fds;
+	backend->input_loop_fds->epoll_event.events = EPOLLIN;
+	backend->input_loop_fds->evdev_context = NULL;
+	backend->input_loop_fds->device_path = NULL;
+	backend->input_loop_fds->device_fd = backend->pipe_fds_input_loop[0];
+	backend->input_loop_fds->next = NULL;
+	backend->input_loop_last = backend->input_loop_fds;
+
+	error_posix =
+		epoll_ctl(
+			backend->input_loop_epollfd,
+			EPOLL_CTL_ADD,
+			backend->input_loop_fds->device_fd,
+			&(backend->input_loop_fds->epoll_event));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_ADD);
+		return;
+	}
+
+	// create a self-pipe to be able to interrupt polling in the device loop
+	error_posix = pipe(backend->pipe_fds_device_loop);
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_PIPE_CREATE);
+		return;
+	}
+
+	// set non-block on pipe fds
+	int flags_device_loop = fcntl(backend->pipe_fds_device_loop[0], F_GETFL);
+
+	if (flags_device_loop == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_FCNTL);
+		return;
+	}
+
+	error_posix =
+		fcntl(
+			backend->pipe_fds_device_loop[0],
+			F_SETFL,
+			flags_device_loop | O_NONBLOCK);
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_FCNTL);
+		return;
+	}
+
+	// create device epoll instances
+	backend->device_loop_epollfd = epoll_create(2);
+
+	if (backend->device_loop_epollfd == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_CREATE);
+		return;
+	}
+
+	// save pipe fd in watched input devices fds
+	backend->device_loop_fds[0].data.ptr = &(backend->device_loop_fds[0]);
+	backend->device_loop_fds[0].events = EPOLLIN;
+
+	error_posix =
+		epoll_ctl(
+			backend->device_loop_epollfd,
+			EPOLL_CTL_ADD,
+			backend->pipe_fds_device_loop[0],
+			&(backend->device_loop_fds[0]));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_ADD);
+		return;
+	}
+
+	// create pthread mutexes
+	mutex_init(context, backend, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		return;
+	}
+
+	// create semaphore
+	sem_init(&(backend->remove_count), 0, 0);
 
 	// all good
 	punknobs_error_ok(error);
@@ -53,11 +248,90 @@ void punknobs_evdev_epoll_clean(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
+	int error_posix = 0;
+
+	// close self-pipe fds
+	close(backend->pipe_fds_input_loop[1]);
+	close(backend->pipe_fds_input_loop[0]);
+	close(backend->pipe_fds_device_loop[1]);
+	close(backend->pipe_fds_device_loop[0]);
+
+	// clean device resources
+	struct evdev_epoll_info* input_loop_fds;
+
+	// free pipe fd
+	if (backend->input_loop_fds != NULL)
+	{
+		input_loop_fds = backend->input_loop_fds->next;
+		free(backend->input_loop_fds);
+	}
+
+	// free input fds
+	while (input_loop_fds != NULL)
+	{
+		libevdev_free(input_loop_fds->evdev_context);
+		error_posix = close(input_loop_fds->device_fd);
+		free(input_loop_fds->device_path);
+
+		if (error_posix != 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_POSIX_CLOSE);
+			return;
+		}
+
+		struct evdev_epoll_info* prev = input_loop_fds;
+		input_loop_fds = input_loop_fds->next;
+		free(prev);
+	}
+
+	// free removed input fds
+	struct evdev_epoll_info* next = NULL;
+	struct evdev_epoll_info* input_removed = backend->input_removed;
+
+	while (input_removed != NULL)
+	{
+		libevdev_free(input_removed->evdev_context);
+		error_posix = close(input_removed->device_fd);
+		free(input_removed->device_path);
+
+		if (error_posix != 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_POSIX_CLOSE);
+			return;
+		}
+
+		next = input_removed->next;
+		free(input_removed);
+		input_removed = next;
+	}
+
+	// free pending devices
+	for (size_t i = 0; i < backend->devices_pending_count; ++i)
+	{
+		free(backend->devices_pending[i]);
+	}
+
+	free(backend->devices_pending);
+
+	// destroy pthread mutexes
+	mutex_clean(context, backend, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		return;
+	}
+
+	// destroy semaphore
+	sem_destroy(&(backend->remove_count));
 
 	// free the backend
 	free(backend);
-
-	// TODO
 
 	// all good
 	punknobs_error_ok(error);
