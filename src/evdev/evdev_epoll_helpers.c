@@ -285,7 +285,7 @@ static void run_device_callback(
 				info.registered = device_del->info.registered;
 				info.removing = device_del->info.removing;
 
-				if (device_prev == backend->devices_plugged)
+				if (device_prev == device_del)
 				{
 					backend->devices_plugged = device_next;
 				}
