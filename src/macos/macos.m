@@ -165,7 +165,29 @@ void punknobs_macos_reenumerate(
 
 	while (device != NULL)
 	{
-		// TODO
+		if (device->info.plugged == true)
+		{
+			struct macos_device_info info =
+			{
+				.punknobs_id = (intptr_t) device,
+				.manufacturer_name = device->info.manufacturer_name,
+				.product_name = device->info.product_name,
+				.vendor_id = device->info.vendor_id,
+				.product_id = device->info.product_id,
+				.plugged = device->info.plugged,
+				.registered = device->info.registered,
+			};
+
+			context->device_callback(
+				context->device_custom_data,
+				&info,
+				error);
+
+			if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+			{
+				return;
+			}
+		}
 
 		device = device->next;
 	}

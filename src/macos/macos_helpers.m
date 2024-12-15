@@ -9,206 +9,13 @@
 #import <IOHIDManager.h>
 
 // # Some helpers used by the thread class below
-static void helper_device(
-	void* punknobs,
-	IOReturn result,
-	void* sender,
-	IOHIDDeviceRef device,
-	bool plugged)
-{
-	struct punknobs* context = punknobs;
-	struct macos_backend* backend = context->backend_context;
-	struct punknobs_error_info error;
-
-	// get device vendor/product ids
-    CFNumberRef vendor_ref =
-		(CFNumberRef) IOHIDDeviceGetProperty(
-				device,
-				CFSTR(kIOHIDVendorIDKey));
-
-    CFNumberRef product_ref =
-		(CFNumberRef) IOHIDDeviceGetProperty(
-			device,
-			CFSTR(kIOHIDProductIDKey));
-
-    int vendor = ((NSNumber*) vendor_ref).intValue;
-    int product = ((NSNumber*) product_ref).intValue;
-
-	// get manufacturer and product strings
-	CFStringRef manufacturer_name_ref =
-		(CFStringRef) IOHIDDeviceGetProperty(
-			device,
-			CFSTR(kIOHIDManufacturerKey));
-
-	CFStringRef product_name_ref =
-		(CFStringRef) IOHIDDeviceGetProperty(
-			device,
-			CFSTR(kIOHIDProductKey));
-
-	// get string lengths
-	CFIndex manufacturer_name_glyphs =
-		CFStringGetLength(
-			manufacturer_name_ref);
-
-	CFIndex product_name_glyphs =
-		CFStringGetLength(
-			product_name_ref);
-
-	CFIndex manufacturer_name_len =
-		CFStringGetMaximumSizeForEncoding(
-			manufacturer_name_glyphs,
-			kCFStringEncodingUTF8) + 1;
-
-	CFIndex product_name_len =
-		CFStringGetMaximumSizeForEncoding(
-			product_name_glyphs,
-			kCFStringEncodingUTF8) + 1;
-
-	// allocate buffers for strings
-	char* manufacturer_name = malloc(manufacturer_name_len);
-
-	if (manufacturer_name == NULL)
-	{
-		punknobs_error_throw(
-			context,
-			&error,
-			PUNKNOBS_ERROR_ALLOC);
-		return;
-	}
-
-	char* product_name = malloc(product_name_len);
-
-	if (product_name == NULL)
-	{
-		punknobs_error_throw(
-			context,
-			&error,
-			PUNKNOBS_ERROR_ALLOC);
-		return;
-	}
-
-	// get strings from CFStringRefs
-	bool error_cf;
-
-	error_cf =
-		CFStringGetCString(
-			manufacturer_name_ref,
-			manufacturer_name,
-			manufacturer_name_len,
-			kCFStringEncodingUTF8);
-
-	if (error_cf != true)
-	{
-		punknobs_error_throw(
-			context,
-			&error,
-			PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING);
-		return;
-	}
-
-	error_cf =
-		CFStringGetCString(
-			product_name_ref,
-			product_name,
-			product_name_len,
-			kCFStringEncodingUTF8);
-
-	if (error_cf != true)
-	{
-		punknobs_error_throw(
-			context,
-			&error,
-			PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING);
-		return;
-	}
-
-	struct macos_device_info info;
-
-	if (plugged == true)
-	{
-		// run callback
-		info.punknobs_id = (intptr_t) device;
-		info.manufacturer_name = manufacturer_name;
-		info.product_name = product_name;
-		info.vendor_id = vendor;
-		info.product_id = product;
-		info.plugged = plugged;
-		info.registered = false;
-
-		// save device in list
-		struct macos_device_node* device = malloc(sizeof (struct macos_device_node));
-
-		if (device == NULL)
-		{
-			punknobs_error_throw(
-				context,
-				&error,
-				PUNKNOBS_ERROR_ALLOC);
-			return;
-		}
-
-		device->info = info;
-		device->next = backend->devices;
-		backend->devices = device;
-	}
-	else
-	{
-		struct macos_device_node* device = backend->devices;
-		struct macos_device_node* device_prev = device;
-		struct macos_device_node* device_next = NULL;
-
-		while (device != NULL)
-		{
-			device_next = device->next;
-
-			if (device->info.punknobs_id == ((intptr_t) device))
-			{
-				info.punknobs_id = (intptr_t) device;
-				info.manufacturer_name = device->info.manufacturer_name;
-				info.product_name = device->info.product_name;
-				info.vendor_id = device->info.vendor_id;
-				info.product_id = device->info.product_id;
-				info.plugged = device->info.plugged;
-				info.registered = device->info.registered;
-
-				if (device_prev == device)
-				{
-					backend->devices = device_next;
-				}
-				else
-				{
-					device_prev->next = device_next;
-				}
-
-				free(device);
-
-				break;
-			}
-
-			device_prev = device;
-			device = device->next;
-		}
-	}
-
-	// execute callback
-	context->device_callback(
-		context->device_custom_data,
-		&info,
-		&error);
-
-	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
-	{
-		return;
-	}
-}
-
 static void device_added(
 	void* punknobs,
 	IOReturn result,
 	void* sender,
 	IOHIDDeviceRef device)
 {
-	helper_device(punknobs, result, sender, device, true);
+	macos_helper_device(punknobs, result, sender, device, true);
 }
 
 static void device_removed(
@@ -217,7 +24,7 @@ static void device_removed(
 	void* sender,
 	IOHIDDeviceRef device)
 {
-	helper_device(punknobs, result, sender, device, false);
+	macos_helper_device(punknobs, result, sender, device, false);
 }
 
 // find dictionary info about device type
@@ -511,7 +318,197 @@ void macos_helper_input(
 			break;
 		}
 	}
+}
 
-	// all good
-	punknobs_error_ok(&error);
+void macos_helper_device(
+	void* punknobs,
+	IOReturn result,
+	void* sender,
+	IOHIDDeviceRef device,
+	bool plugged)
+{
+	struct punknobs* context = punknobs;
+	struct macos_backend* backend = context->backend_context;
+	struct punknobs_error_info error;
+
+	// get device vendor/product ids
+    CFNumberRef vendor_ref =
+		(CFNumberRef) IOHIDDeviceGetProperty(
+				device,
+				CFSTR(kIOHIDVendorIDKey));
+
+    CFNumberRef product_ref =
+		(CFNumberRef) IOHIDDeviceGetProperty(
+			device,
+			CFSTR(kIOHIDProductIDKey));
+
+    int vendor = ((NSNumber*) vendor_ref).intValue;
+    int product = ((NSNumber*) product_ref).intValue;
+
+	// get manufacturer and product strings
+	CFStringRef manufacturer_name_ref =
+		(CFStringRef) IOHIDDeviceGetProperty(
+			device,
+			CFSTR(kIOHIDManufacturerKey));
+
+	CFStringRef product_name_ref =
+		(CFStringRef) IOHIDDeviceGetProperty(
+			device,
+			CFSTR(kIOHIDProductKey));
+
+	// get string lengths
+	CFIndex manufacturer_name_glyphs =
+		CFStringGetLength(
+			manufacturer_name_ref);
+
+	CFIndex product_name_glyphs =
+		CFStringGetLength(
+			product_name_ref);
+
+	CFIndex manufacturer_name_len =
+		CFStringGetMaximumSizeForEncoding(
+			manufacturer_name_glyphs,
+			kCFStringEncodingUTF8) + 1;
+
+	CFIndex product_name_len =
+		CFStringGetMaximumSizeForEncoding(
+			product_name_glyphs,
+			kCFStringEncodingUTF8) + 1;
+
+	// allocate buffers for strings
+	char* manufacturer_name = malloc(manufacturer_name_len);
+
+	if (manufacturer_name == NULL)
+	{
+		punknobs_error_throw(
+			context,
+			&error,
+			PUNKNOBS_ERROR_ALLOC);
+		return;
+	}
+
+	char* product_name = malloc(product_name_len);
+
+	if (product_name == NULL)
+	{
+		punknobs_error_throw(
+			context,
+			&error,
+			PUNKNOBS_ERROR_ALLOC);
+		return;
+	}
+
+	// get strings from CFStringRefs
+	bool error_cf;
+
+	error_cf =
+		CFStringGetCString(
+			manufacturer_name_ref,
+			manufacturer_name,
+			manufacturer_name_len,
+			kCFStringEncodingUTF8);
+
+	if (error_cf != true)
+	{
+		punknobs_error_throw(
+			context,
+			&error,
+			PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING);
+		return;
+	}
+
+	error_cf =
+		CFStringGetCString(
+			product_name_ref,
+			product_name,
+			product_name_len,
+			kCFStringEncodingUTF8);
+
+	if (error_cf != true)
+	{
+		punknobs_error_throw(
+			context,
+			&error,
+			PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING);
+		return;
+	}
+
+	struct macos_device_info info;
+
+	if (plugged == true)
+	{
+		// run callback
+		info.punknobs_id = (intptr_t) device;
+		info.manufacturer_name = manufacturer_name;
+		info.product_name = product_name;
+		info.vendor_id = vendor;
+		info.product_id = product;
+		info.plugged = plugged;
+		info.registered = false;
+
+		// save device in list
+		struct macos_device_node* device = malloc(sizeof (struct macos_device_node));
+
+		if (device == NULL)
+		{
+			punknobs_error_throw(
+				context,
+				&error,
+				PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
+		device->info = info;
+		device->next = backend->devices;
+		backend->devices = device;
+	}
+	else
+	{
+		struct macos_device_node* device = backend->devices;
+		struct macos_device_node* device_prev = device;
+		struct macos_device_node* device_next = NULL;
+
+		while (device != NULL)
+		{
+			device_next = device->next;
+
+			if (device->info.punknobs_id == ((intptr_t) device))
+			{
+				info.punknobs_id = (intptr_t) device;
+				info.manufacturer_name = device->info.manufacturer_name;
+				info.product_name = device->info.product_name;
+				info.vendor_id = device->info.vendor_id;
+				info.product_id = device->info.product_id;
+				info.plugged = device->info.plugged;
+				info.registered = device->info.registered;
+
+				if (device_prev == device)
+				{
+					backend->devices = device_next;
+				}
+				else
+				{
+					device_prev->next = device_next;
+				}
+
+				free(device);
+
+				break;
+			}
+
+			device_prev = device;
+			device = device->next;
+		}
+	}
+
+	// execute callback
+	context->device_callback(
+		context->device_custom_data,
+		&info,
+		&error);
+
+	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+	{
+		return;
+	}
 }

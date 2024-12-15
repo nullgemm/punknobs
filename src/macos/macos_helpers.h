@@ -31,4 +31,11 @@ void macos_helper_input(
 	void* sender,
 	IOHIDValueRef value);
 
+void macos_helper_device(
+	void* punknobs,
+	IOReturn result,
+	void* sender,
+	IOHIDDeviceRef device,
+	bool plugged);
+
 #endif
