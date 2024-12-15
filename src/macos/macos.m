@@ -299,8 +299,8 @@ void punknobs_macos_input_get_time(
 
 	uint64_t timestamp = IOHIDValueGetTimeStamp(info->input_value);
 
-	*sec = timestamp / 1000000;
-	*usec = timestamp % 1000000;
+	*sec = timestamp / 1000000000;
+	*usec = (timestamp % 1000000000) / 1000;
 
 	punknobs_error_ok(error);
 }
