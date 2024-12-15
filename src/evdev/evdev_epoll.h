@@ -18,6 +18,7 @@ struct evdev_epoll_device_info
 {
 	intptr_t punknobs_id;
 	char* name;
+	char* path;
 	unsigned vendor_id;
 	unsigned product_id;
 	bool plugged;
@@ -56,9 +57,13 @@ struct evdev_epoll_thread_data
 struct evdev_epoll_backend
 {
 	struct punknobs* punknobs;
+	int timeout;
 	bool closed;
 
 	// device and input threads
+	struct evdev_epoll_thread_data thread_data;
+	pthread_t device_thread;
+	pthread_t input_thread;
 	pthread_mutex_t mutex_main;
 
 	// device folder watcher

@@ -6,6 +6,7 @@
 #include "evdev/evdev_epoll.h"
 #include "evdev/evdev_epoll_helpers.h"
 
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -15,6 +16,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/inotify.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -99,7 +101,9 @@ static void run_device_callback(
 	bool plugged,
 	struct punknobs_error_info* error)
 {
+	struct evdev_epoll_backend* backend = context->backend_context;
 	int error_posix = 0;
+
 	char* hardware_name_copy = "";
 	unsigned id_vendor = 0;
 	unsigned id_product = 0;
@@ -172,14 +176,26 @@ static void run_device_callback(
 		close(fd_tmp);
 	}
 
+	char* full_path_copy = strdup(full_path);
+
+	if (full_path_copy == NULL)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_STRDUP);
+		return;
+	}
+
 	struct evdev_epoll_device_info info =
 	{
-		.punknobs_id = id;
-		.name = hardware_name_copy
-		.vendor_id = id_vendor;
-		.product_id = id_product;
-		.plugged = plugged;
-		.registered = false;
+		.punknobs_id = id,
+		.path = full_path_copy,
+		.name = hardware_name_copy,
+		.vendor_id = id_vendor,
+		.product_id = id_product,
+		.plugged = plugged,
+		.registered = false,
 	};
 
 	if (plugged == true)
@@ -206,7 +222,7 @@ static void run_device_callback(
 		{
 			punknobs_error_throw(
 				context,
-				&error,
+				error,
 				PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
 			return;
 		}
@@ -222,7 +238,7 @@ static void run_device_callback(
 		{
 			punknobs_error_throw(
 				context,
-				&error,
+				error,
 				PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
 			return;
 		}
@@ -236,7 +252,7 @@ static void run_device_callback(
 		{
 			punknobs_error_throw(
 				context,
-				&error,
+				error,
 				PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
 			return;
 		}
@@ -259,6 +275,7 @@ static void run_device_callback(
 				else
 				{
 					device_prev->next = device_next;
+					free(device_del->info.path);
 					free(device_del);
 				}
 
@@ -276,7 +293,7 @@ static void run_device_callback(
 		{
 			punknobs_error_throw(
 				context,
-				&error,
+				error,
 				PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
 			return;
 		}
@@ -422,7 +439,7 @@ static void device_handle(
 			free(event_buf);
 			punknobs_error_throw(
 				context,
-				&error,
+				error,
 				PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
 			return;
 		}
@@ -437,7 +454,7 @@ static void device_handle(
 			free(event_buf);
 			punknobs_error_throw(
 				context,
-				&error,
+				error,
 				PUNKNOBS_ERROR_ALLOC);
 			return;
 		}
@@ -509,7 +526,7 @@ static void device_handle(
 					free(event_buf);
 					punknobs_error_throw(
 						context,
-						&error,
+						error,
 						PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
 					return;
 				}
@@ -583,7 +600,7 @@ static void device_handle(
 			free(event_buf);
 			punknobs_error_throw(
 				context,
-				&error,
+				error,
 				PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
 			return;
 		}
@@ -784,7 +801,7 @@ void mutex_clean(
 
 void* callback_devices(void* data)
 {
-	struct evdev_thread_data* thread_data = data;
+	struct evdev_epoll_thread_data* thread_data = data;
 	struct punknobs* context = thread_data->punknobs;
 	struct evdev_epoll_backend* backend = thread_data->backend;
 
@@ -1087,7 +1104,7 @@ void* callback_devices(void* data)
 
 void* callback_inputs(void* data)
 {
-	struct evdev_thread_data* thread_data = data;
+	struct evdev_epoll_thread_data* thread_data = data;
 	struct punknobs* context = thread_data->punknobs;
 	struct evdev_epoll_backend* backend = thread_data->backend;
 
@@ -1384,7 +1401,7 @@ void devices_clean(
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_INOTIFY_RM);
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_INOTIFY_DEL);
 		return;
 	}
 

@@ -18,7 +18,7 @@ void* callback_inputs(void* data);
 void devices_init(
 	struct punknobs* context,
 	struct evdev_epoll_backend* backend,
-	struct punknobs_error_info* error)
+	struct punknobs_error_info* error);
 
 void devices_init_list(
 	struct punknobs* context,

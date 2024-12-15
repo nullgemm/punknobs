@@ -29,6 +29,8 @@ void punknobs_error_init(
 	log[PUNKNOBS_ERROR_DOMAIN] =
 		"invalid domain";
 	// evdev
+	log[PUNKNOBS_ERROR_POSIX_STRDUP] =
+		"failed strdup";
 	log[PUNKNOBS_ERROR_POSIX_PIPE_CREATE] =
 		"failed pipe creation";
 	log[PUNKNOBS_ERROR_POSIX_FCNTL] =
@@ -45,10 +47,54 @@ void punknobs_error_init(
 		"failed initializing mutex";
 	log[PUNKNOBS_ERROR_POSIX_MUTEX_DESTROY] =
 		"failed destroying mutex";
+	log[PUNKNOBS_ERROR_POSIX_MUTEX_LOCK] =
+		"failed locking mutex";
+	log[PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK] =
+		"failed unlocking mutex";
+	log[PUNKNOBS_ERROR_POSIX_SEMAPHORE_WAIT] =
+		"failed waiting for semaphore";
+	log[PUNKNOBS_ERROR_POSIX_SEMAPHORE_GET] =
+		"failed getting semaphore value";
+	log[PUNKNOBS_ERROR_POSIX_THREAD_ATTR_INIT] =
+		"failed initializing thread attributes";
+	log[PUNKNOBS_ERROR_POSIX_THREAD_ATTR_JOINABLE] =
+		"failed setting joinable thread attribute";
+	log[PUNKNOBS_ERROR_POSIX_THREAD_ATTR_DESTROY] =
+		"failed destroying thread attributes";
+	log[PUNKNOBS_ERROR_POSIX_THREAD_CREATE] =
+		"failed creating thread";
+	log[PUNKNOBS_ERROR_POSIX_THREAD_JOIN] =
+		"failed joining thread";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_POLL] =
+		"failed polling";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_DEVICE_NOT_FOUND] =
+		"could not find target device";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_OPEN_EVENTFD] =
+		"could not open event file descriptor";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_OPENDIR_ROOT] =
+		"could not open event directory";
 	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_CREATE] =
 		"failed creating epoll structure";
 	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_ADD] =
 		"failed adding descriptor to epoll";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_DEL] =
+		"failed removing descriptor from epoll";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_INOTIFY_INIT] =
+		"could not initialize inotify";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_INOTIFY_ADD] =
+		"could not add inotify watch";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_INOTIFY_DEL] =
+		"could not remove inotify watch";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_INOTIFY_READ] =
+		"could not read inotify event";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_INOTIFY_EVENT_UNKNOWN] =
+		"unknown inotify event";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_LIBEVDEV_NEW] =
+		"could not create evdev context";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_LIBEVDEV_GET_HARDWARE_NAME] =
+		"could not get device hardware name";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_LIBEVDEV_NEXT_EVENT] =
+		"could not get next evdev event";
 #endif
 }
 

@@ -44,6 +44,7 @@ void punknobs_evdev_epoll_init(
 
 	// initialize everything with default values
 	backend->punknobs = context;
+	backend->timeout = -1;
 	backend->closed = false;
 
 	backend->device_loop_epollfd = -1;
@@ -320,6 +321,7 @@ void punknobs_evdev_epoll_clean(
 	while (device_plugged != NULL)
 	{
 		device_next = device_plugged->next;
+		free(device_plugged->info.path);
 		free(device_plugged);
 		device_plugged = device_next;
 	}
@@ -407,13 +409,30 @@ void punknobs_evdev_epoll_start(
 		return;
 	}
 
+	// start the input loop in a new thread
+	error_posix =
+		pthread_create(
+			&(backend->input_thread),
+			&attr,
+			callback_inputs,
+			&(backend->thread_data));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_THREAD_CREATE);
+		return;
+	}
+
 	// destroy the attributes
 	error_posix = pthread_attr_destroy(&attr);
 
 	if (error_posix != 0)
 	{
 		punknobs_error_throw(
-			punknobs,
+			context,
 			error,
 			PUNKNOBS_ERROR_POSIX_THREAD_ATTR_DESTROY);
 		return;
@@ -552,7 +571,7 @@ void punknobs_evdev_epoll_register_add(
 	}
 
 	// watch the device
-	struct evdev_epoll_device_info* info = device->info;
+	struct evdev_epoll_device_info* info = &(device->info);
 
 	// open event device descriptor
 	int fd = open(info->path, O_RDONLY | O_NONBLOCK);
@@ -583,8 +602,8 @@ void punknobs_evdev_epoll_register_add(
 	}
 
 	// add to watch list
-	struct evdev_epoll_input_info* new_device =
-		malloc(sizeof (struct evdev_epoll_input_info));
+	struct evdev_epoll_info* new_device =
+		malloc(sizeof (struct evdev_epoll_info));
 
 	if (new_device == NULL)
 	{
@@ -623,7 +642,7 @@ void punknobs_evdev_epoll_register_add(
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_ADD);
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_ADD);
 		return;
 	}
 
