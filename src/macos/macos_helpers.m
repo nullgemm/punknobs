@@ -9,7 +9,7 @@
 #import <IOHIDManager.h>
 
 // # Some helpers used by the thread class below
-void punknobs_backend_macos_helper_device(
+static void helper_device(
 	void* punknobs,
 	IOReturn result,
 	void* sender,
@@ -17,7 +17,7 @@ void punknobs_backend_macos_helper_device(
 	bool plugged)
 {
 	struct punknobs* context = punknobs;
-	struct punknobs_backend_macos* backend = context->backend;
+	struct macos_backend* backend = context->backend_context;
 	struct punknobs_error_info error;
 
 	// get device vendor/product ids
@@ -122,7 +122,7 @@ void punknobs_backend_macos_helper_device(
 		return;
 	}
 
-	struct punknobs_backend_macos_device_info info;
+	struct macos_device_info info;
 
 	if (plugged == true)
 	{
@@ -130,8 +130,8 @@ void punknobs_backend_macos_helper_device(
 		info.punknobs_id = (intptr_t) device;
 		info.manufacturer_name = manufacturer_name;
 		info.product_name = product_name;
-		info.id_vendor = vendor;
-		info.id_product = product;
+		info.vendor_id = vendor;
+		info.product_id = product;
 		info.plugged = plugged;
 		info.registered = false;
 
@@ -147,7 +147,7 @@ void punknobs_backend_macos_helper_device(
 			return;
 		}
 
-		device.info = info;
+		device->info = info;
 		device->next = backend->devices;
 		backend->devices = device;
 	}
@@ -166,8 +166,8 @@ void punknobs_backend_macos_helper_device(
 				info.punknobs_id = (intptr_t) device;
 				info.manufacturer_name = device->info.manufacturer_name;
 				info.product_name = device->info.product_name;
-				info.id_vendor = device->info.id_vendor;
-				info.id_product = device->info.id_product;
+				info.vendor_id = device->info.vendor_id;
+				info.product_id = device->info.product_id;
 				info.plugged = device->info.plugged;
 				info.registered = device->info.registered;
 
@@ -202,26 +202,26 @@ void punknobs_backend_macos_helper_device(
 	}
 }
 
-void device_added(
+static void device_added(
 	void* punknobs,
 	IOReturn result,
 	void* sender,
 	IOHIDDeviceRef device)
 {
-	macos_helper_device(punknobs, result, sender, device, true);
+	helper_device(punknobs, result, sender, device, true);
 }
 
-void device_removed(
+static void device_removed(
 	void* punknobs,
 	IOReturn result,
 	void* sender,
 	IOHIDDeviceRef device)
 {
-	macos_helper_device(punknobs, result, sender, device, false);
+	helper_device(punknobs, result, sender, device, false);
 }
 
 // find dictionary info about device type
-CFDictionaryRef dictionary(uint32_t page, uint32_t usage)
+static CFDictionaryRef dictionary(uint32_t page, uint32_t usage)
 {
     CFNumberRef page_number =
 		CFNumberCreate(
@@ -469,7 +469,7 @@ void macos_helper_input(
 	IOHIDValueRef value)
 {
 	struct punknobs* context = punknobs;
-	struct punknobs_backend_macos* backend = context->backend;
+	struct macos_backend* backend = context->backend_context;
 	struct punknobs_error_info error;
 
 	IOHIDElementRef element = IOHIDValueGetElement(value);
@@ -489,8 +489,8 @@ void macos_helper_input(
 			};
 
 			// execute callback
-			punknobs->inputs_callback(
-				punknobs->inputs_custom_data,
+			context->inputs_callback(
+				context->inputs_custom_data,
 				&out,
 				&error);
 

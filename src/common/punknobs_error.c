@@ -95,6 +95,9 @@ void punknobs_error_init(
 		"could not get device hardware name";
 	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_LIBEVDEV_NEXT_EVENT] =
 		"could not get next evdev event";
+	// macos
+	log[PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING] =
+		"could not convert string";
 #endif
 }
 

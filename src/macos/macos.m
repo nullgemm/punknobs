@@ -2,8 +2,8 @@
 #include "include/punknobs_macos.h"
 
 #include "common/punknobs_private.h"
-#include "evdev/macos.h"
-#include "evdev/macos_helpers.h"
+#include "macos/macos.h"
+#include "macos/macos_helpers.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -38,7 +38,7 @@ void punknobs_macos_init(
 	backend->punknobs = context;
 	backend->devices = NULL;
 	backend->thread = [PunknobsThread new];
-	[context->thread setBackend: context];
+	[backend->thread setPunknobs: context];
 
 	// all good
 	punknobs_error_ok(error);
@@ -203,7 +203,7 @@ char* punknobs_macos_device_get_name(
 
 	if (name == NULL)
 	{
-		punknobs_error_throw(punknobs, error, PUNKNOBS_ERROR_ALLOC);
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
 		return NULL;
 	}
 

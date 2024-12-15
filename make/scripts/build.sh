@@ -17,11 +17,11 @@ if [ -z "$build_type" ]; then
 fi
 
 if [ -z "$build_backend" ]; then
-	build_backend=evdev_epoll
+	build_backend=macos
 fi
 
 if [ -z "$build_example" ]; then
-	build_example=evdev_epoll
+	build_example=macos
 fi
 
 if [ -z "$build_toolchain" ]; then

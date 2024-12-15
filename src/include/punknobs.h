@@ -56,7 +56,7 @@ enum punknobs_error
 	// win
 	// TODO
 	// macos
-	// TODO
+	PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING,
 	// special
 	PUNKNOBS_ERROR_COUNT,
 };

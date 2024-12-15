@@ -1,7 +1,9 @@
 #ifndef H_PUNKNOBS_BACKEND_MACOS
 #define H_PUNKNOBS_BACKEND_MACOS
 
-#include "include/punknobs.h"
+#import <Foundation/Foundation.h>
+#import <IOHIDDevice.h>
+#import <IOHIDManager.h>
 
 struct macos_device_info
 {
@@ -23,7 +25,7 @@ struct macos_input_info
 struct macos_device_node
 {
 	struct macos_device_info info;
-	struct macos_device* next;
+	struct macos_device_node* next;
 };
 
 struct macos_thread_data
@@ -32,10 +34,14 @@ struct macos_thread_data
 	struct macos_backend* backend;
 };
 
+struct punknobs;
+@class PunknobsThread;
+
 struct macos_backend
 {
 	struct punknobs* punknobs;
 	struct macos_device_node* devices;
+	PunknobsThread* thread;
 };
 
 #endif
