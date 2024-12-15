@@ -99,6 +99,7 @@ static void run_device_callback(
 	bool plugged,
 	struct punknobs_error_info* error)
 {
+	int error_posix = 0;
 	char* hardware_name_copy = "";
 	unsigned id_vendor = 0;
 	unsigned id_product = 0;
@@ -122,7 +123,6 @@ static void run_device_callback(
 		// This is a one-shot connection to the device we open to get
 		// all the information we can about it in order to provide
 		// the developer with a complete picture of the gamepad.
-		int error_posix = 0;
 		struct libevdev* libevdev_ctx = NULL;
 
 		error_posix = libevdev_new_from_fd(fd_tmp, &libevdev_ctx);
@@ -181,6 +181,106 @@ static void run_device_callback(
 		.plugged = plugged;
 		.registered = false;
 	};
+
+	if (plugged == true)
+	{
+		// allocate new plugged device node
+		struct evdev_epoll_device* device_new = malloc(sizeof (struct evdev_epoll_device));
+
+		if (device_new == NULL)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
+		// set device info
+		device_new->info = info;
+
+		// lock main mutex
+		error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+		if (error_posix != 0)
+		{
+			punknobs_error_throw(
+				context,
+				&error,
+				PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+			return;
+		}
+
+		// save plugged device
+		device_new->next = backend->devices_plugged;
+		backend->devices_plugged = device_new;
+
+		// unlock main mutex
+		error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+		if (error_posix != 0)
+		{
+			punknobs_error_throw(
+				context,
+				&error,
+				PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			return;
+		}
+	}
+	else
+	{
+		// lock main mutex
+		error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+		if (error_posix != 0)
+		{
+			punknobs_error_throw(
+				context,
+				&error,
+				PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+			return;
+		}
+
+		// search for device in plugged list
+		struct evdev_epoll_device* device_del = backend->devices_plugged;
+		struct evdev_epoll_device* device_prev = device_del;
+		struct evdev_epoll_device* device_next = NULL;
+
+		while (device_del != NULL)
+		{
+			device_next = device_del->next;
+
+			if (device_del->info.punknobs_id == id)
+			{
+				if (device_prev == backend->devices_plugged)
+				{
+					backend->devices_plugged = device_next;
+				}
+				else
+				{
+					device_prev->next = device_next;
+					free(device_del);
+				}
+
+				break;
+			}
+
+			device_prev = device_del;
+			device_del = device_next;
+		}
+
+		// unlock main mutex
+		error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+		if (error_posix != 0)
+		{
+			punknobs_error_throw(
+				context,
+				&error,
+				PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			return;
+		}
+	}
 
 	// call device callback
 	//
@@ -857,65 +957,112 @@ void* callback_devices(void* data)
 
 					if (closed == false)
 					{
-						error_posix = sem_trywait(&(backend->remove_count));
-
-						if (error_posix != 0)
+						if (buf == 0)
 						{
-							punknobs_error_throw(
-								context,
-								&error,
-								PUNKNOBS_ERROR_POSIX_SEMAPHORE_WAIT);
-							pthread_exit(NULL);
-							return NULL;
-						}
+							error_posix = sem_trywait(&(backend->remove_count));
 
-						int remove_count;
-						error_posix = sem_getvalue(&(backend->remove_count), &remove_count);
-
-						if (error_posix != 0)
-						{
-							punknobs_error_throw(
-								context,
-								&error,
-								PUNKNOBS_ERROR_POSIX_SEMAPHORE_GET);
-							pthread_exit(NULL);
-							return NULL;
-						}
-
-						// we can now continue device deletion
-						if (remove_count == 0)
-						{
-							// actually remove all shit
-							struct evdev_epoll_info* next = NULL;
-							struct evdev_epoll_info* input_removed = backend->input_removed;
-
-							while (input_removed != NULL)
+							if (error_posix != 0)
 							{
-								libevdev_free(input_removed->evdev_context);
-								error_posix = close(input_removed->device_fd);
-								free(input_removed->device_path);
+								punknobs_error_throw(
+									context,
+									&error,
+									PUNKNOBS_ERROR_POSIX_SEMAPHORE_WAIT);
+								pthread_exit(NULL);
+								return NULL;
+							}
 
-								if (error_posix != 0)
+							int remove_count;
+							error_posix = sem_getvalue(&(backend->remove_count), &remove_count);
+
+							if (error_posix != 0)
+							{
+								punknobs_error_throw(
+									context,
+									&error,
+									PUNKNOBS_ERROR_POSIX_SEMAPHORE_GET);
+								pthread_exit(NULL);
+								return NULL;
+							}
+
+							// we can now continue device deletion
+							if (remove_count == 0)
+							{
+								// actually remove all shit
+								struct evdev_epoll_info* next = NULL;
+								struct evdev_epoll_info* input_removed = backend->input_removed;
+
+								while (input_removed != NULL)
 								{
-									punknobs_error_throw(
-										context,
-										&error,
-										PUNKNOBS_ERROR_POSIX_CLOSE);
+									libevdev_free(input_removed->evdev_context);
+									error_posix = close(input_removed->device_fd);
+									free(input_removed->device_path);
+
+									if (error_posix != 0)
+									{
+										punknobs_error_throw(
+											context,
+											&error,
+											PUNKNOBS_ERROR_POSIX_CLOSE);
+										pthread_exit(NULL);
+										return NULL;
+									}
+
+									next = input_removed->next;
+									free(input_removed);
+									input_removed = next;
+								}
+
+								backend->input_removed = NULL;
+							}
+							else
+							{
+								char pipe_msg = 0;
+								write(backend->pipe_fds_device_loop[1], &pipe_msg, 1);
+							}
+						}
+						else if (buf == 1)
+						{
+							// lock main mutex
+							error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+							if (error_posix != 0)
+							{
+								punknobs_error_throw(
+									context,
+									&error,
+									PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+								pthread_exit(NULL);
+								return NULL;
+							}
+
+							// call device callback again for all plugged devices
+							struct evdev_epoll_device* device_plugged = backend->devices_plugged;
+
+							while (device_plugged != NULL)
+							{
+								context->device_callback(context->device_custom_data, &(device_plugged->info), &error);
+
+								if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+								{
 									pthread_exit(NULL);
 									return NULL;
 								}
 
-								next = input_removed->next;
-								free(input_removed);
-								input_removed = next;
+								device_plugged = device_plugged->next;
 							}
 
-							backend->input_removed = NULL;
-						}
-						else
-						{
-							char pipe_msg = 0;
-							write(backend->pipe_fds_device_loop[1], &pipe_msg, 1);
+							// unlock main mutex
+							error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+							if (error_posix != 0)
+							{
+								punknobs_error_throw(
+									context,
+									&error,
+									PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+								pthread_exit(NULL);
+								return NULL;
+							}
 						}
 					}
 				}

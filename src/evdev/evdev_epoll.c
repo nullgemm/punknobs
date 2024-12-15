@@ -57,8 +57,6 @@ void punknobs_evdev_epoll_init(
 	backend->input_loop_last = NULL;
 
 	backend->devices_plugged = NULL;
-	backend->devices_last = NULL;
-
 	backend->devices_pending = NULL;
 	backend->devices_pending_count = 0;
 	backend->devices_pending_max = 0;
@@ -533,8 +531,8 @@ void punknobs_evdev_epoll_register_add(
 
 	while (device != NULL)
 	{
-		if ((device->info->registered == false)
-		&& (device->info->punknobs_id == id))
+		if ((device->info.registered == false)
+		&& (device->info.punknobs_id == id))
 		{
 			break;
 		}
@@ -725,8 +723,8 @@ void punknobs_evdev_epoll_register_del(
 
 	while (device != NULL)
 	{
-		if ((device->info->registered == true)
-		&& (device->info->punknobs_id == id))
+		if ((device->info.registered == true)
+		&& (device->info.punknobs_id == id))
 		{
 			break;
 		}
@@ -737,7 +735,7 @@ void punknobs_evdev_epoll_register_del(
 	// set device to unregistered
 	if (device != NULL)
 	{
-		device->info->registered = false;
+		device->info.registered = false;
 	}
 
 	// signal input loop to have it flush events about the device being removed
@@ -764,8 +762,12 @@ void punknobs_evdev_epoll_reenumerate(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
-	// TODO signal using pipe?
+	struct evdev_epoll_backend* backend = context->backend_context;
 
+	char pipe_msg = 1;
+	write(backend->pipe_fds_device_loop[1], &pipe_msg, 1);
+
+	// all good
 	punknobs_error_ok(error);
 }
 
@@ -776,7 +778,6 @@ intptr_t punknobs_evdev_epoll_device_get_punknobs_id(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
 	punknobs_error_ok(error);
@@ -789,7 +790,6 @@ char* punknobs_evdev_epoll_device_get_name(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
 	punknobs_error_ok(error);
@@ -802,7 +802,6 @@ unsigned punknobs_evdev_epoll_device_get_vendor_id(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
 	punknobs_error_ok(error);
@@ -815,7 +814,6 @@ unsigned punknobs_evdev_epoll_device_get_product_id(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
 	punknobs_error_ok(error);
@@ -828,7 +826,6 @@ bool punknobs_evdev_epoll_device_get_plugged(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
 	punknobs_error_ok(error);
@@ -841,7 +838,6 @@ bool punknobs_evdev_epoll_device_get_registered(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_device_info* info = device_info;
 
 	punknobs_error_ok(error);
@@ -855,7 +851,6 @@ intptr_t punknobs_evdev_epoll_input_get_punknobs_id(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_input_info* info = input_info;
 
 	punknobs_error_ok(error);
@@ -870,7 +865,6 @@ void punknobs_evdev_epoll_input_get_time(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_input_info* info = input_info;
 
 	*sec = info->input_event->input_event_sec;
@@ -885,7 +879,6 @@ unsigned punknobs_evdev_epoll_input_get_type(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_input_info* info = input_info;
 
 	punknobs_error_ok(error);
@@ -898,7 +891,6 @@ unsigned punknobs_evdev_epoll_input_get_code(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_input_info* info = input_info;
 
 	punknobs_error_ok(error);
@@ -911,7 +903,6 @@ unsigned punknobs_evdev_epoll_input_get_value(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
-	struct punknobs* punknobs = backend->punknobs;
 	struct evdev_epoll_input_info* info = input_info;
 
 	punknobs_error_ok(error);

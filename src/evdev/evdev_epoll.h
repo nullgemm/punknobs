@@ -42,7 +42,7 @@ struct evdev_epoll_info
 
 struct evdev_epoll_device
 {
-	struct evdev_epoll_device_info* info;
+	struct evdev_epoll_device_info info;
 
 	struct evdev_epoll_device* next;
 };
@@ -81,7 +81,6 @@ struct evdev_epoll_backend
 
 	// connected devices
 	struct evdev_epoll_device* devices_plugged;
-	struct evdev_epoll_device* devices_last;
 
 	// pending devices
 	char** devices_pending;
