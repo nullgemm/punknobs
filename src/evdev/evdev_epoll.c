@@ -321,6 +321,7 @@ void punknobs_evdev_epoll_clean(
 	while (device_plugged != NULL)
 	{
 		device_next = device_plugged->next;
+		free(device_plugged->info.name);
 		free(device_plugged->info.path);
 		free(device_plugged);
 		device_plugged = device_next;
@@ -603,19 +604,7 @@ void punknobs_evdev_epoll_register_add(
 
 	// add to watch list
 	struct evdev_epoll_info* new_device =
-		malloc(sizeof (struct evdev_epoll_info));
-
-	if (new_device == NULL)
-	{
-		libevdev_free(libevdev_ctx);
-		close(fd);
-		pthread_mutex_unlock(&(backend->mutex_main));
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_ALLOC);
-		return;
-	}
+		(struct evdev_epoll_info*) info->punknobs_id;
 
 	// configure epoll
 	new_device->epoll_event.data.ptr = new_device;
@@ -646,7 +635,6 @@ void punknobs_evdev_epoll_register_add(
 		return;
 	}
 
-	info->punknobs_id = (intptr_t) new_device;
 	info->registered = true;
 
 	// unlock main mutex

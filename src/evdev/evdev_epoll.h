@@ -23,6 +23,7 @@ struct evdev_epoll_device_info
 	unsigned product_id;
 	bool plugged;
 	bool registered;
+	bool removing;
 };
 
 struct evdev_epoll_input_info

@@ -102,11 +102,9 @@ static void run_device_callback(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
+	struct evdev_epoll_device_info info;
+	struct evdev_epoll_device* device_del;
 	int error_posix = 0;
-
-	char* hardware_name_copy = "";
-	unsigned id_vendor = 0;
-	unsigned id_product = 0;
 
 	if (plugged == true)
 	{
@@ -155,7 +153,7 @@ static void run_device_callback(
 			return;
 		}
 
-		hardware_name_copy = strdup(hardware_name);
+		char* hardware_name_copy = strdup(hardware_name);
 
 		if (hardware_name_copy == NULL)
 		{
@@ -168,38 +166,46 @@ static void run_device_callback(
 			return;
 		}
 
-		id_vendor = libevdev_get_id_vendor(libevdev_ctx);
-		id_product = libevdev_get_id_product(libevdev_ctx);
+		unsigned id_vendor = libevdev_get_id_vendor(libevdev_ctx);
+		unsigned id_product = libevdev_get_id_product(libevdev_ctx);
 
 		// free resources
 		libevdev_free(libevdev_ctx);
 		close(fd_tmp);
-	}
 
-	char* full_path_copy = strdup(full_path);
+		// fill info
+		char* full_path_copy = strdup(full_path);
 
-	if (full_path_copy == NULL)
-	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_POSIX_STRDUP);
-		return;
-	}
+		if (full_path_copy == NULL)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_POSIX_STRDUP);
+			return;
+		}
 
-	struct evdev_epoll_device_info info =
-	{
-		.punknobs_id = id,
-		.path = full_path_copy,
-		.name = hardware_name_copy,
-		.vendor_id = id_vendor,
-		.product_id = id_product,
-		.plugged = plugged,
-		.registered = false,
-	};
+		struct evdev_epoll_info* new_device =
+			malloc(sizeof (struct evdev_epoll_info));
 
-	if (plugged == true)
-	{
+		if (new_device == NULL)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
+		info.punknobs_id = (intptr_t) new_device;
+		info.path = full_path_copy;
+		info.name = hardware_name_copy;
+		info.vendor_id = id_vendor;
+		info.product_id = id_product;
+		info.plugged = plugged;
+		info.registered = false;
+		info.removing = false;
+
 		// allocate new plugged device node
 		struct evdev_epoll_device* device_new = malloc(sizeof (struct evdev_epoll_device));
 
@@ -258,7 +264,7 @@ static void run_device_callback(
 		}
 
 		// search for device in plugged list
-		struct evdev_epoll_device* device_del = backend->devices_plugged;
+		device_del = backend->devices_plugged;
 		struct evdev_epoll_device* device_prev = device_del;
 		struct evdev_epoll_device* device_next = NULL;
 
@@ -268,6 +274,17 @@ static void run_device_callback(
 
 			if (device_del->info.punknobs_id == id)
 			{
+				device_del->info.removing = true;
+
+				info.punknobs_id = id;
+				info.path = device_del->info.path;
+				info.name = device_del->info.name;
+				info.vendor_id = device_del->info.vendor_id;
+				info.product_id = device_del->info.product_id;
+				info.plugged = plugged;
+				info.registered = device_del->info.registered;
+				info.removing = device_del->info.removing;
+
 				if (device_prev == backend->devices_plugged)
 				{
 					backend->devices_plugged = device_next;
@@ -275,8 +292,6 @@ static void run_device_callback(
 				else
 				{
 					device_prev->next = device_next;
-					free(device_del->info.path);
-					free(device_del);
 				}
 
 				break;
@@ -311,9 +326,10 @@ static void run_device_callback(
 		return;
 	}
 
-	if (plugged == true)
+	if (plugged == false)
 	{
-		free(hardware_name_copy);
+		free(device_del->info.name);
+		free(device_del);
 	}
 
 	// all good
@@ -459,6 +475,41 @@ static void device_handle(
 			return;
 		}
 
+		// skip events about devices about to be removed
+		struct evdev_epoll_device* device_plugged = backend->devices_plugged;
+
+		while (device_plugged != NULL)
+		{
+			if (strcmp(device_plugged->info.path, full_path) == 0)
+			{
+				break;
+			}
+
+			device_plugged = device_plugged->next;
+		}
+
+		if ((device_plugged != NULL) && (device_plugged->info.removing == true))
+		{
+			// next event
+			event_cur += (sizeof (struct inotify_event)) + event->len;
+
+			// unlock main mutex
+			error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+			if (error_posix != 0)
+			{
+				free(event_buf);
+				punknobs_error_throw(
+					context,
+					error,
+					PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+				return;
+			}
+
+			continue;
+		}
+
+		// handle events
 		intptr_t id = (intptr_t) NULL;
 		bool plugged = false;
 		bool skip = false;
