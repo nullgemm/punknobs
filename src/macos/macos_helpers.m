@@ -447,9 +447,9 @@ void macos_helper_device(
 		info.registered = false;
 
 		// save device in list
-		struct macos_device_node* device = malloc(sizeof (struct macos_device_node));
+		struct macos_device_node* device_node = malloc(sizeof (struct macos_device_node));
 
-		if (device == NULL)
+		if (device_node == NULL)
 		{
 			punknobs_error_throw(
 				context,
@@ -458,31 +458,31 @@ void macos_helper_device(
 			return;
 		}
 
-		device->info = info;
-		device->next = backend->devices;
-		backend->devices = device;
+		device_node->info = info;
+		device_node->next = backend->devices;
+		backend->devices = device_node;
 	}
 	else
 	{
-		struct macos_device_node* device = backend->devices;
-		struct macos_device_node* device_prev = device;
+		struct macos_device_node* device_node = backend->devices;
+		struct macos_device_node* device_prev = device_node;
 		struct macos_device_node* device_next = NULL;
 
-		while (device != NULL)
+		while (device_node != NULL)
 		{
-			device_next = device->next;
+			device_next = device_node->next;
 
-			if (device->info.punknobs_id == ((intptr_t) device))
+			if (device_node->info.punknobs_id == ((intptr_t) device))
 			{
 				info.punknobs_id = (intptr_t) device;
-				info.manufacturer_name = device->info.manufacturer_name;
-				info.product_name = device->info.product_name;
-				info.vendor_id = device->info.vendor_id;
-				info.product_id = device->info.product_id;
-				info.plugged = device->info.plugged;
-				info.registered = device->info.registered;
+				info.manufacturer_name = device_node->info.manufacturer_name;
+				info.product_name = device_node->info.product_name;
+				info.vendor_id = device_node->info.vendor_id;
+				info.product_id = device_node->info.product_id;
+				info.plugged = false;
+				info.registered = device_node->info.registered;
 
-				if (device_prev == device)
+				if (device_prev == device_node)
 				{
 					backend->devices = device_next;
 				}
@@ -491,13 +491,13 @@ void macos_helper_device(
 					device_prev->next = device_next;
 				}
 
-				free(device);
+				free(device_node);
 
 				break;
 			}
 
-			device_prev = device;
-			device = device->next;
+			device_prev = device_node;
+			device_node = device_node->next;
 		}
 	}
 
