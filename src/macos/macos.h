@@ -6,24 +6,23 @@
 struct macos_device_info
 {
 	intptr_t punknobs_id;
-	char* name;
+	char* manufacturer_name;
+	char* product_name;
 	unsigned vendor_id;
 	unsigned product_id;
 	bool plugged;
 	bool registered;
-	//TODO
 };
 
 struct macos_input_info
 {
 	intptr_t punknobs_id;
-	//TODO
+	IOHIDValueRef input_value;
 };
 
-struct macos_device
+struct macos_device_node
 {
 	struct macos_device_info info;
-
 	struct macos_device* next;
 };
 
@@ -36,6 +35,7 @@ struct macos_thread_data
 struct macos_backend
 {
 	struct punknobs* punknobs;
+	struct macos_device_node* devices;
 };
 
 #endif

@@ -5,6 +5,14 @@
 #include "evdev/macos.h"
 #include "evdev/macos_helpers.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+
+#import <Foundation/Foundation.h>
+#import <IOHIDDevice.h>
+#import <IOHIDManager.h>
+
 // main API
 void punknobs_macos_init(
 	struct punknobs* context,
@@ -28,6 +36,9 @@ void punknobs_macos_init(
 
 	// initialize everything with default values
 	backend->punknobs = context;
+	backend->devices = NULL;
+	backend->thread = [PunknobsThread new];
+	[context->thread setBackend: context];
 
 	// all good
 	punknobs_error_ok(error);
@@ -38,6 +49,20 @@ void punknobs_macos_clean(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
+
+	// release thread
+	[backend->thread release];
+
+	// release the list of plugged devices
+	struct macos_device_node* device = backend->devices;
+	struct macos_device_node* device_tmp = NULL;
+
+	while (device != NULL)
+	{
+		device_tmp = device->next;
+		free(device);
+		device = device_tmp;
+	}
 
 	// free the backend
 	free(backend);
@@ -52,6 +77,8 @@ void punknobs_macos_start(
 {
 	struct macos_backend* backend = context->backend_context;
 
+	[backend->thread start];
+
 	// all good
 	punknobs_error_ok(error);
 }
@@ -61,6 +88,8 @@ void punknobs_macos_stop(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
+
+	[backend->thread stop];
 
 	// all good
 	punknobs_error_ok(error);
@@ -72,6 +101,26 @@ void punknobs_macos_register_add(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
+	struct macos_device_node* device = backend->devices;
+
+	while (device != NULL)
+	{
+		if ((device->info.punknobs_id == id)
+		&& (device->info.registered == false)
+		&& (device->info.plugged == true))
+		{
+			IOHIDDeviceRegisterInputValueCallback(
+				(IOHIDDeviceRef) id,
+				macos_helper_input,
+				context);
+
+			device->info.registered = true;
+
+			break;
+		}
+
+		device = device->next;
+	}
 
 	// all good
 	punknobs_error_ok(error);
@@ -83,6 +132,25 @@ void punknobs_macos_register_del(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
+	struct macos_device_node* device = backend->devices;
+
+	while (device != NULL)
+	{
+		if ((device->info.punknobs_id == id)
+		&& (device->info.registered == true))
+		{
+			IOHIDDeviceRegisterInputValueCallback(
+				(IOHIDDeviceRef) id,
+				NULL,
+				NULL);
+
+			device->info.registered = false;
+
+			break;
+		}
+
+		device = device->next;
+	}
 
 	// all good
 	punknobs_error_ok(error);
@@ -93,6 +161,14 @@ void punknobs_macos_reenumerate(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
+	struct macos_device_node* device = backend->devices;
+
+	while (device != NULL)
+	{
+		// TODO
+
+		device = device->next;
+	}
 
 	// all good
 	punknobs_error_ok(error);
@@ -119,8 +195,35 @@ char* punknobs_macos_device_get_name(
 	struct macos_backend* backend = context->backend_context;
 	struct macos_device_info* info = device_info;
 
+	size_t manufacturer_len = strlen(info->manufacturer_name);
+	size_t product_len = strlen(info->product_name);
+
+	// allocate name buffer
+	char* name = malloc(manufacturer_len + product_len + 2);
+
+	if (name == NULL)
+	{
+		punknobs_error_throw(punknobs, error, PUNKNOBS_ERROR_ALLOC);
+		return NULL;
+	}
+
+	// fill name buffer
+	char* ptr = name;
+	// copy manufacturer name
+	strncpy(ptr, info->manufacturer_name, manufacturer_len);
+	ptr += manufacturer_len;
+	// append space
+	*ptr = ' ';
+	ptr += 1;
+	// append product name
+	strncpy(ptr, info->product_name, product_len);
+	ptr += product_len;
+	// append NUL
+	*ptr = '\0';
+
+	// all good
 	punknobs_error_ok(error);
-	return info->name;
+	return name;
 }
 
 unsigned punknobs_macos_device_get_vendor_id(
@@ -194,8 +297,10 @@ void punknobs_macos_input_get_time(
 	struct macos_backend* backend = context->backend_context;
 	struct macos_input_info* info = input_info;
 
-	*sec = 
-	*usec = 
+	uint64_t timestamp = IOHIDValueGetTimeStamp(info->input_value);
+
+	*sec = timestamp / 1000000;
+	*usec = timestamp % 1000000;
 
 	punknobs_error_ok(error);
 }
@@ -209,7 +314,7 @@ unsigned punknobs_macos_input_get_type(
 	struct macos_input_info* info = input_info;
 
 	punknobs_error_ok(error);
-	return info->input_event->type;
+	return IOHIDElementGetType(IOHIDValueGetElement(info->input_value));
 }
 
 unsigned punknobs_macos_input_get_code(
@@ -221,7 +326,19 @@ unsigned punknobs_macos_input_get_code(
 	struct macos_input_info* info = input_info;
 
 	punknobs_error_ok(error);
-	return info->input_event->code;
+	return IOHIDElementGetUsage(IOHIDValueGetElement(info->input_value));
+}
+
+unsigned punknobs_macos_input_get_page(
+	struct punknobs* context,
+	void* input_info,
+	struct punknobs_error_info* error)
+{
+	struct macos_backend* backend = context->backend_context;
+	struct macos_input_info* info = input_info;
+
+	punknobs_error_ok(error);
+	return IOHIDElementGetUsagePage(IOHIDValueGetElement(info->input_value));
 }
 
 unsigned punknobs_macos_input_get_value(
@@ -233,7 +350,7 @@ unsigned punknobs_macos_input_get_value(
 	struct macos_input_info* info = input_info;
 
 	punknobs_error_ok(error);
-	return info->input_event->value;
+	return IOHIDValueGetIntegerValue(info->input_value);
 }
 
 // configurator
