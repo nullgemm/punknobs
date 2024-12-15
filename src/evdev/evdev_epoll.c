@@ -19,13 +19,6 @@
 #include <linux/input.h>
 #include <pthread.h>
 
-// *heavy sigh*
-#if defined(_POSIX_MONOTONIC_CLOCK)
-#define PUNKNOBS_NIX_EVDEV_CLOCK CLOCK_MONOTONIC
-#else
-#define PUNKNOBS_NIX_EVDEV_CLOCK CLOCK_REALTIME
-#endif
-
 // main API
 void punknobs_evdev_epoll_init(
 	struct punknobs* context,
@@ -62,6 +55,9 @@ void punknobs_evdev_epoll_init(
 	backend->input_removed = NULL;
 	backend->input_loop_fds = NULL;
 	backend->input_loop_last = NULL;
+
+	backend->devices_plugged = NULL;
+	backend->devices_last = NULL;
 
 	backend->devices_pending = NULL;
 	backend->devices_pending_count = 0;
@@ -341,8 +337,88 @@ void punknobs_evdev_epoll_start(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
-	// TODO
+	struct evdev_epoll_backend* backend = context->backend_context;
+	int error_posix = 0;
 
+	// prepare initial device list
+	devices_init(context, backend, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		return;
+	}
+
+	// create pthread attributes
+	pthread_attr_t attr;
+
+	error_posix = pthread_attr_init(&attr);
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_THREAD_ATTR_INIT);
+		return;
+	}
+
+	error_posix = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_THREAD_ATTR_JOINABLE);
+		return;
+	}
+
+	struct evdev_epoll_thread_data thread_data =
+	{
+		.punknobs = context,
+		.backend = backend,
+	};
+
+	backend->thread_data = thread_data;
+
+	// start the device loop in a new thread
+	error_posix =
+		pthread_create(
+			&(backend->device_thread),
+			&attr,
+			callback_devices,
+			&(backend->thread_data));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_THREAD_CREATE);
+		return;
+	}
+
+	// destroy the attributes
+	error_posix = pthread_attr_destroy(&attr);
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			punknobs,
+			error,
+			PUNKNOBS_ERROR_POSIX_THREAD_ATTR_DESTROY);
+		return;
+	}
+
+	// prepare initial device list
+	devices_init_list(context, backend, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		return;
+	}
+
+	// all good
 	punknobs_error_ok(error);
 }
 
@@ -350,8 +426,74 @@ void punknobs_evdev_epoll_stop(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
-	// TODO
+	struct evdev_epoll_backend* backend = context->backend_context;
+	int error_posix = 0;
 
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// request that threads close
+	backend->closed = true;
+
+	// ping input loop and device loop self-pipes
+	char pipe_msg = 0;
+	write(backend->pipe_fds_input_loop[1], &pipe_msg, 1);
+	write(backend->pipe_fds_device_loop[1], &pipe_msg, 1);
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
+
+	// wait for input thread to end
+	error_posix = pthread_join(backend->input_thread, NULL);
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_THREAD_JOIN);
+		return;
+	}
+
+	// wait for device thread to end
+	error_posix = pthread_join(backend->device_thread, NULL);
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_THREAD_JOIN);
+		return;
+	}
+
+	// clean inotify
+	devices_clean(context, backend, error);
+
+	if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+	{
+		return;
+	}
+
+	// all good
 	punknobs_error_ok(error);
 }
 
@@ -360,8 +502,138 @@ void punknobs_evdev_epoll_register_add(
 	intptr_t id,
 	struct punknobs_error_info* error)
 {
-	// TODO
+	struct evdev_epoll_backend* backend = context->backend_context;
+	int error_posix = 0;
 
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// search for device in the list
+	struct evdev_epoll_device* device = backend->devices_plugged;
+
+	while (device != NULL)
+	{
+		if ((device->info->registered == false)
+		&& (device->info->punknobs_id == id))
+		{
+			break;
+		}
+
+		device = device->next;
+	}
+
+	// stop here if we could not find the device
+	if (device == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_DEVICE_NOT_FOUND);
+		return;
+	}
+
+	// watch the device
+	struct evdev_epoll_device_info* info = device->info;
+
+	// open event device descriptor
+	int fd = open(info->path, O_RDONLY | O_NONBLOCK);
+
+	if (fd == -1)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_OPEN_EVENTFD);
+		return;
+	}
+
+	// create libevdev context
+	struct libevdev* libevdev_ctx = NULL;
+	error_posix = libevdev_new_from_fd(fd, &libevdev_ctx);
+
+	if (error_posix != 0)
+	{
+		close(fd);
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_LIBEVDEV_NEW);
+		return;
+	}
+
+	// add to watch list
+	struct evdev_epoll_input_info* new_device =
+		malloc(sizeof (struct evdev_epoll_input_info));
+
+	if (new_device == NULL)
+	{
+		libevdev_free(libevdev_ctx);
+		close(fd);
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_ALLOC);
+		return;
+	}
+
+	// configure epoll
+	new_device->epoll_event.data.ptr = new_device;
+	new_device->epoll_event.events = EPOLLIN;
+	new_device->evdev_context = libevdev_ctx;
+	new_device->device_path = info->path;
+	new_device->device_fd = fd;
+	new_device->next = backend->input_loop_last->next;
+	backend->input_loop_last->next = new_device;
+	backend->input_loop_last = new_device;
+
+	error_posix =
+		epoll_ctl(
+			backend->input_loop_epollfd,
+			EPOLL_CTL_ADD,
+			fd,
+			&(new_device->epoll_event));
+
+	if (error_posix != 0)
+	{
+		libevdev_free(libevdev_ctx);
+		close(fd);
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_ADD);
+		return;
+	}
+
+	info->punknobs_id = (intptr_t) new_device;
+	info->registered = true;
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
 	punknobs_error_ok(error);
 }
 
@@ -370,8 +642,110 @@ void punknobs_evdev_epoll_register_del(
 	intptr_t id,
 	struct punknobs_error_info* error)
 {
-	// TODO
+	struct evdev_epoll_backend* backend = context->backend_context;
+	int error_posix = 0;
 
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// find ptr for given device fd
+	struct evdev_epoll_info* prev = backend->input_loop_fds;
+	struct evdev_epoll_info* input_loop_fds = backend->input_loop_fds->next;
+
+	while (input_loop_fds != NULL)
+	{
+		if (((intptr_t) input_loop_fds) == id)
+		{
+			break;
+		}
+
+		prev = input_loop_fds;
+		input_loop_fds = input_loop_fds->next;
+	}
+
+	if (input_loop_fds == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return;
+	}
+
+	error_posix =
+		epoll_ctl(
+			backend->input_loop_epollfd,
+			EPOLL_CTL_DEL,
+			input_loop_fds->device_fd,
+			NULL);
+
+	if (error_posix != 0)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EPOLL_DEL);
+	}
+
+	// save reference to device being removed
+	if (input_loop_fds == backend->input_loop_last)
+	{
+		backend->input_loop_last = prev;
+	}
+
+	prev->next = input_loop_fds->next;
+	input_loop_fds->next = backend->input_removed;
+	backend->input_removed = input_loop_fds;
+	sem_post(&(backend->remove_count));
+
+	// search for device in the list
+	struct evdev_epoll_device* device = backend->devices_plugged;
+
+	while (device != NULL)
+	{
+		if ((device->info->registered == true)
+		&& (device->info->punknobs_id == id))
+		{
+			break;
+		}
+
+		device = device->next;
+	}
+
+	// set device to unregistered
+	if (device != NULL)
+	{
+		device->info->registered = false;
+	}
+
+	// signal input loop to have it flush events about the device being removed
+	char pipe_msg = 0;
+	write(backend->pipe_fds_input_loop[1], &pipe_msg, 1);
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
 	punknobs_error_ok(error);
 }
 
@@ -379,7 +753,7 @@ void punknobs_evdev_epoll_reenumerate(
 	struct punknobs* context,
 	struct punknobs_error_info* error)
 {
-	// TODO
+	// TODO signal using pipe?
 
 	punknobs_error_ok(error);
 }

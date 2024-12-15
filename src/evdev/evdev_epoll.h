@@ -40,6 +40,19 @@ struct evdev_epoll_info
 	struct evdev_epoll_info* next;
 };
 
+struct evdev_epoll_device
+{
+	struct evdev_epoll_device_info* info;
+
+	struct evdev_epoll_device* next;
+};
+
+struct evdev_epoll_thread_data
+{
+	struct punknobs* punknobs;
+	struct evdev_epoll_backend* backend;
+};
+
 struct evdev_epoll_backend
 {
 	struct punknobs* punknobs;
@@ -65,6 +78,10 @@ struct evdev_epoll_backend
 	sem_t remove_count;
 	struct evdev_epoll_info* input_loop_fds;
 	struct evdev_epoll_info* input_loop_last;
+
+	// connected devices
+	struct evdev_epoll_device* devices_plugged;
+	struct evdev_epoll_device* devices_last;
 
 	// pending devices
 	char** devices_pending;
