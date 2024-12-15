@@ -9,7 +9,7 @@ void punknobs_prepare_init_macos(
 
 unsigned punknobs_macos_input_get_page(
 	struct punknobs* context,
-	void* backend_info,
+	void* input_info,
 	struct punknobs_error_info* error);
 
 #endif
