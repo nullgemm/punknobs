@@ -315,6 +315,17 @@ void punknobs_evdev_epoll_clean(
 
 	free(backend->devices_pending);
 
+	// free plugged devices
+	struct evdev_epoll_device* device_plugged = backend->devices_plugged;
+	struct evdev_epoll_device* device_next = NULL;
+
+	while (device_plugged != NULL)
+	{
+		device_next = device_plugged->next;
+		free(device_plugged);
+		device_plugged = device_next;
+	}
+
 	// destroy pthread mutexes
 	mutex_clean(context, backend, error);
 
