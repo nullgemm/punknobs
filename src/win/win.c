@@ -313,9 +313,216 @@ void punknobs_win_register_add(
 {
 	struct win_backend* backend = context->backend_context;
 
-	// TODO
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
 
-	// all good
+	if (enum_lock != WAIT_OBJECT_0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->ref_enum_devices_dinput;
+
+	while (dinput_node != NULL)
+	{
+		if (id == ((intptr_t) dinput_node))
+		{
+			break;
+		}
+
+		dinput_node = dinput_node->next;
+	}
+
+	if (dinput_node != NULL)
+	{
+		if ((dinput_node->info.registered != false) || (dinput_node->info.plugged != true))
+		{
+			// ignore invalid register requests
+			BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+			if (enum_unlock == 0)
+			{
+				punknobs_error_throw(
+					context,
+					error,
+					PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+				return;
+			}
+
+			punknobs_error_ok(error);
+			return;
+		}
+
+		struct win_device_reg_node_dinput* reg_device =
+			malloc(sizeof (struct win_device_reg_node_dinput));
+
+		if (reg_device == NULL)
+		{
+			ReleaseMutex(backend->mutex_enum);
+			punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
+		dinput_node->device->lpVtbl->SetCooperativeLevel(
+			dinput_node->device,
+			GetActiveWindow(),
+			DISCL_BACKGROUND | DISCL_NONEXCLUSIVE);
+
+		dinput_node->device->lpVtbl->SetDataFormat(
+			dinput_node->device, &c_dfDIJoystick);
+
+		dinput_node->device->lpVtbl->Acquire(
+			dinput_node->device);
+
+		// save cross-pointers and info
+		dinput_node->reg_entry = reg_device;
+		reg_device->enum_entry = dinput_node;
+		memset(&(reg_device->state), 0, sizeof (DIJOYSTATE));
+
+		// unlock mutex
+		BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+		if (enum_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// lock mutex
+		DWORD reg_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
+
+		if (reg_lock != WAIT_OBJECT_0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+			return;
+		}
+
+		// insert node
+		reg_device->next = backend->reg_devices_dinput;
+		backend->reg_devices_dinput = reg_device;
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// all good
+		punknobs_error_ok(error);
+		return;
+	}
+
+	// search for XInput devices
+	struct win_device_enum_node_xinput* xinput_node = backend->ref_enum_devices_xinput;
+
+	while (xinput_node != NULL)
+	{
+		if (id == ((intptr_t) xinput_node))
+		{
+			break;
+		}
+
+		xinput_node = xinput_node->next;
+	}
+
+	if (xinput_node != NULL)
+	{
+		if ((xinput_node->info.registered != false) || (xinput_node->info.plugged != true))
+		{
+			// ignore invalid register requests
+			BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+			if (enum_unlock == 0)
+			{
+				punknobs_error_throw(
+					context,
+					error,
+					PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+				return;
+			}
+
+			punknobs_error_ok(error);
+			return;
+		}
+
+		struct win_device_reg_node_xinput* reg_device =
+			malloc(sizeof (struct win_device_reg_node_xinput));
+
+		if (reg_device == NULL)
+		{
+			ReleaseMutex(backend->mutex_enum);
+			punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
+		// save cross-pointers and info
+		xinput_node->reg_entry = reg_device;
+		reg_device->enum_entry = xinput_node;
+		memset(&(reg_device->state), 0, sizeof (XINPUT_STATE));
+
+		// unlock mutex
+		BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+		if (enum_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// lock mutex
+		DWORD reg_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
+
+		if (reg_lock != WAIT_OBJECT_0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+			return;
+		}
+
+		// insert node
+		reg_device->next = backend->reg_devices_xinput;
+		backend->reg_devices_xinput = reg_device;
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// all good
+		punknobs_error_ok(error);
+		return;
+	}
+
+	// ignore missing devices
 	punknobs_error_ok(error);
 }
 
@@ -326,9 +533,120 @@ void punknobs_win_register_del(
 {
 	struct win_backend* backend = context->backend_context;
 
-	// TODO
+	// search for DirectInput devices
+	DWORD reg_lock_dinput = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
-	// all good
+	if (reg_lock_dinput != WAIT_OBJECT_0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	struct win_device_reg_node_dinput* dinput_node = backend->reg_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_prev = dinput_node;
+
+	while (dinput_node != NULL)
+	{
+		if (id == ((intptr_t) dinput_node->enum_entry))
+		{
+			if (dinput_prev == dinput_node)
+			{
+				backend->reg_devices_dinput = dinput_node->next;
+			}
+			else
+			{
+				dinput_prev->next = dinput_node->next;
+			}
+
+			dinput_node->enum_entry->reg_entry = NULL;
+			dinput_node->enum_entry->device->lpVtbl->Unacquire(dinput_node->enum_entry->device);
+			dinput_node->enum_entry->device->lpVtbl->Release(dinput_node->enum_entry->device);
+			free(dinput_node);
+			break;
+		}
+
+		dinput_prev = dinput_node;
+		dinput_node = dinput_node->next;
+	}
+
+	BOOL reg_unlock_dinput = ReleaseMutex(backend->mutex_reg);
+
+	if (reg_unlock_dinput == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+		return;
+	}
+
+	if (dinput_node != NULL)
+	{
+		// all good
+		punknobs_error_ok(error);
+		return;
+	}
+
+	// search for XInput devices
+	DWORD reg_lock_xinput = WaitForSingleObject(backend->mutex_reg, INFINITE);
+
+	if (reg_lock_xinput != WAIT_OBJECT_0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	struct win_device_reg_node_xinput* xinput_node = backend->reg_devices_xinput;
+	struct win_device_reg_node_xinput* xinput_prev = xinput_node;
+
+	while (xinput_node != NULL)
+	{
+		if (id == ((intptr_t) xinput_node->enum_entry))
+		{
+			if (xinput_prev == xinput_node)
+			{
+				backend->reg_devices_xinput = xinput_node->next;
+			}
+			else
+			{
+				xinput_prev->next = xinput_node->next;
+			}
+
+			xinput_node->enum_entry->reg_entry = NULL;
+			free(xinput_node);
+			break;
+		}
+
+		xinput_prev = xinput_node;
+		xinput_node = xinput_node->next;
+	}
+
+	// unlock mutex
+	BOOL reg_unlock_xinput = ReleaseMutex(backend->mutex_reg);
+
+	if (reg_unlock_xinput == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+		return;
+	}
+
+	if (xinput_node != NULL)
+	{
+		// all good
+		punknobs_error_ok(error);
+		return;
+	}
+
+	// ignore missing devices
 	punknobs_error_ok(error);
 }
 

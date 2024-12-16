@@ -11,41 +11,10 @@
 #include <xinput.h>
 #include <windows.h>
 
-// enum nodes
-struct win_device_enum_node_xinput
-{
-	DWORD id;
-	struct win_device_reg_node_xinput* reg_entry;
-	struct win_device_enum_node_xinput* next;
-};
-
-struct win_device_enum_node_dinput
-{
-	GUID guid;
-	struct win_device_reg_node_dinput* reg_entry;
-	struct win_device_enum_node_dinput* next;
-};
-
 union win_device_enum_node
 {
 	struct win_device_enum_node_dinput* dinput;
 	struct win_device_enum_node_xinput* xinput;
-};
-
-// reg nodes
-struct win_device_reg_node_xinput
-{
-	XINPUT_STATE state;
-	struct win_device_enum_node_xinput* enum_entry;
-	struct win_device_reg_node_xinput* next;
-};
-
-struct win_device_reg_node_dinput
-{
-	DIJOYSTATE state;
-	IDirectInputDevice8* device;
-	struct win_device_enum_node_dinput* enum_entry;
-	struct win_device_reg_node_dinput* next;
 };
 
 // events info
@@ -71,6 +40,39 @@ struct win_input_info
 
 	enum punknobs_win_api api;
 	union win_device_enum_node device_enum_node;
+};
+
+// enum nodes
+struct win_device_enum_node_xinput
+{
+	DWORD id;
+	struct win_device_reg_node_xinput* reg_entry;
+	struct win_device_enum_node_xinput* next;
+	struct win_device_info info;
+};
+
+struct win_device_enum_node_dinput
+{
+	GUID guid;
+	IDirectInputDevice8* device;
+	struct win_device_reg_node_dinput* reg_entry;
+	struct win_device_enum_node_dinput* next;
+	struct win_device_info info;
+};
+
+// reg nodes
+struct win_device_reg_node_xinput
+{
+	XINPUT_STATE state;
+	struct win_device_enum_node_xinput* enum_entry;
+	struct win_device_reg_node_xinput* next;
+};
+
+struct win_device_reg_node_dinput
+{
+	DIJOYSTATE state;
+	struct win_device_enum_node_dinput* enum_entry;
+	struct win_device_reg_node_dinput* next;
 };
 
 // threads

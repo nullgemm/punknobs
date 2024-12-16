@@ -106,6 +106,10 @@ void punknobs_error_init(
 		"could not create mutex";
 	log[PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_DESTROY] =
 		"could not destroy mutex";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK] =
+		"could not lock mutex";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK] =
+		"could not unlock mutex";
 	log[PUNKNOBS_ERROR_BACKEND_WIN_THREAD_DEVICE_START] =
 		"could not start device thread";
 	log[PUNKNOBS_ERROR_BACKEND_WIN_THREAD_DEVICE_CLOSE] =
