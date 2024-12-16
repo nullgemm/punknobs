@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define PUNKNOBS_XUSB_HARDWARE_NAME "XUSB Controller"
+
 unsigned __stdcall device_loop(void* data)
 {
 	// TODO
