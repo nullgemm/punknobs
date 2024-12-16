@@ -17,11 +17,11 @@ if [ -z "$build_type" ]; then
 fi
 
 if [ -z "$build_backend" ]; then
-	build_backend=macos
+	build_backend=win
 fi
 
 if [ -z "$build_example" ]; then
-	build_example=macos
+	build_example=win
 fi
 
 if [ -z "$build_toolchain" ]; then
