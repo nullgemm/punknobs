@@ -300,7 +300,87 @@ void punknobs_win_stop(
 		return;
 	}
 
-	// TODO
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+
+	if (enum_lock != WAIT_OBJECT_0)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	// clean reference dinput enumeration list
+	struct win_device_enum_node_dinput* dinput_enum_node = backend->ref_enum_devices_dinput;
+	struct win_device_enum_node_dinput* dinput_enum_next = NULL;
+
+	while (dinput_enum_node != NULL)
+	{
+		dinput_enum_next = dinput_enum_node->next;
+		dinput_enum_node->device->lpVtbl->Unacquire(dinput_enum_node->device);
+		dinput_enum_node->device->lpVtbl->Release(dinput_enum_node->device);
+		free(dinput_enum_node);
+		dinput_enum_node = dinput_enum_next;
+	}
+
+	// clean reference xinput enumeration list
+	struct win_device_enum_node_xinput* xinput_enum_node = backend->ref_enum_devices_xinput;
+	struct win_device_enum_node_xinput* xinput_enum_next = NULL;
+
+	while (xinput_enum_node != NULL)
+	{
+		xinput_enum_next = xinput_enum_node->next;
+		free(xinput_enum_node);
+		xinput_enum_node = xinput_enum_next;
+	}
+
+	// unlock mutex
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+		return;
+	}
+
+	// lock mutex
+	DWORD reg_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
+
+	if (reg_lock != WAIT_OBJECT_0)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	// clean dinput registry
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_next = NULL;
+
+	while (dinput_reg_node != NULL)
+	{
+		dinput_reg_next = dinput_reg_node->next;
+		free(dinput_reg_node);
+		dinput_reg_node = dinput_reg_next;
+	}
+
+	// clean xinput registry
+	struct win_device_reg_node_xinput* xinput_reg_node = backend->reg_devices_xinput;
+	struct win_device_reg_node_xinput* xinput_reg_next = NULL;
+
+	while (xinput_reg_node != NULL)
+	{
+		xinput_reg_next = xinput_reg_node->next;
+		free(xinput_reg_node);
+		xinput_reg_node = xinput_reg_next;
+	}
+
+	// unlock mutex
+	BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+	if (reg_unlock == 0)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+		return;
+	}
 
 	// all good
 	punknobs_error_ok(error);
