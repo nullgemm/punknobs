@@ -5,11 +5,18 @@
 #include "win/win.h"
 #include "win/win_helpers.h"
 
+#define DIRECTINPUT_VERSION 0x0800
+#include <dinput.h>
+#include <guiddef.h>
+#include <process.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysinfoapi.h>
+#include <windows.h>
+#include <xinput.h>
 
 // main API
 void punknobs_win_init(
@@ -34,9 +41,116 @@ void punknobs_win_init(
 
 	// initialize everything with default values
 	backend->punknobs = context;
+	backend->delays.delay_device_refresh = 3000;
+	backend->delays.delay_input_refresh = 8;
 	backend->closed = false;
+	backend->dinput = NULL;
+	backend->new_enum_devices_dinput = NULL;
+	backend->ref_enum_devices_dinput = NULL;
+	backend->reg_devices_dinput = NULL;
+	backend->new_enum_devices_xinput = NULL;
+	backend->ref_enum_devices_xinput = NULL;
+	backend->reg_devices_xinput = NULL;
 
-	// TODO
+	// main mutex
+	backend->mutex_main = CreateMutexW(NULL, FALSE, NULL);
+
+	if (backend->mutex_main == NULL)
+	{
+		free(backend);
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_CREATE);
+		return;
+	}
+
+	// enum mutex
+	backend->mutex_enum = CreateMutexW(NULL, FALSE, NULL);
+
+	if (backend->mutex_enum == NULL)
+	{
+		CloseHandle(backend->mutex_main);
+		free(backend);
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_CREATE);
+		return;
+	}
+
+	// reg mutex
+	backend->mutex_reg = CreateMutexW(NULL, FALSE, NULL);
+
+	if (backend->mutex_reg == NULL)
+	{
+		CloseHandle(backend->mutex_enum);
+		CloseHandle(backend->mutex_main);
+		free(backend);
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_CREATE);
+		return;
+	}
+
+	// reference module
+	backend->win_module = GetModuleHandleW(NULL);
+
+	if (backend->win_module == NULL)
+	{
+		CloseHandle(backend->mutex_reg);
+		CloseHandle(backend->mutex_enum);
+		CloseHandle(backend->mutex_main);
+		free(backend);
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MODULE_GET);
+		return;
+	}
+
+	// create directinput context
+	HRESULT error_dinput =
+		DirectInput8Create(
+			backend->win_module,
+			DIRECTINPUT_VERSION,
+			&IID_IDirectInput8W,
+			(void**) &(backend->dinput),
+			NULL);
+
+	if (error_dinput != DI_OK)
+	{
+		CloseHandle(backend->mutex_reg);
+		CloseHandle(backend->mutex_enum);
+		CloseHandle(backend->mutex_main);
+		free(backend);
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_DINPUT_GET);
+		return;
+	}
+
+	// initialize device thread
+	struct win_thread_device_loop_data thread_device_loop_data =
+	{
+		.context = NULL,
+		.error = NULL,
+	};
+
+	backend->thread_device = NULL;
+	backend->thread_device_loop_data = thread_device_loop_data;
+
+	// initialize event thread
+	struct win_thread_input_loop_data thread_input_loop_data =
+	{
+		.context = NULL,
+		.error = NULL,
+	};
+
+	backend->thread_input = NULL;
+	backend->thread_input_loop_data = thread_input_loop_data;
 
 	// all good
 	punknobs_error_ok(error);
@@ -47,8 +161,40 @@ void punknobs_win_clean(
 	struct punknobs_error_info* error)
 {
 	struct win_backend* backend = context->backend_context;
+	BOOL ok = FALSE;
+	
+	ok = CloseHandle(backend->mutex_main);
 
-	// TODO
+	if (ok == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_DESTROY);
+		return;
+	}
+	
+	ok = CloseHandle(backend->mutex_enum);
+
+	if (ok == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_DESTROY);
+		return;
+	}
+	
+	ok = CloseHandle(backend->mutex_reg);
+
+	if (ok == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_DESTROY);
+		return;
+	}
 
 	// free the backend
 	free(backend);
@@ -63,7 +209,61 @@ void punknobs_win_start(
 {
 	struct win_backend* backend = context->backend_context;
 
-	// TODO
+	// start device thread
+	struct win_thread_device_loop_data thread_device_loop_data =
+	{
+		.context = backend,
+		.error = error,
+	};
+
+	backend->thread_device_loop_data =
+		thread_device_loop_data;
+
+	backend->thread_device =
+		(HANDLE) _beginthreadex(
+			NULL,
+			0,
+			device_loop,
+			&(backend->thread_device_loop_data),
+			0,
+			NULL);
+
+	if (backend->thread_device == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_THREAD_DEVICE_START);
+		return;
+	}
+
+	// start event thread
+	struct win_thread_input_loop_data thread_input_loop_data =
+	{
+		.context = backend,
+		.error = error,
+	};
+
+	backend->thread_input_loop_data =
+		thread_input_loop_data;
+
+	backend->thread_input =
+		(HANDLE) _beginthreadex(
+			NULL,
+			0,
+			input_loop,
+			&(backend->thread_input_loop_data),
+			0,
+			NULL);
+
+	if (backend->thread_input == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_THREAD_INPUT_START);
+		return;
+	}
 
 	// all good
 	punknobs_error_ok(error);
@@ -74,6 +274,31 @@ void punknobs_win_stop(
 	struct punknobs_error_info* error)
 {
 	struct win_backend* backend = context->backend_context;
+	BOOL ok = FALSE;
+
+	// stop device thread
+	ok = CloseHandle(backend->thread_device);
+
+	if (ok == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_THREAD_DEVICE_CLOSE);
+		return;
+	}
+
+	// stop event thread
+	ok = CloseHandle(backend->thread_input);
+
+	if (ok == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_THREAD_INPUT_CLOSE);
+		return;
+	}
 
 	// TODO
 
@@ -128,10 +353,30 @@ intptr_t punknobs_win_device_get_punknobs_id(
 	struct win_backend* backend = context->backend_context;
 	struct win_device_info* info = device_info;
 
-	// TODO
+	switch (info->api)
+	{
+		case PUNKNOBS_WIN_API_DIRECTINPUT:
+		{
+			punknobs_error_ok(error);
+			return (intptr_t) info->device_enum_node.dinput;
+		}
+		case PUNKNOBS_WIN_API_XINPUT:
+		{
+			punknobs_error_ok(error);
+			return (intptr_t) info->device_enum_node.xinput;
+		}
+		default:
+		{
+			break;
+		}
+	}
 
-	punknobs_error_ok(error);
-	return info->punknobs_id;
+	punknobs_error_throw(
+		context,
+		error,
+		PUNKNOBS_ERROR_BACKEND_WIN_INVALID_API);
+
+	return (intptr_t) NULL;
 }
 
 char* punknobs_win_device_get_name(
@@ -142,10 +387,20 @@ char* punknobs_win_device_get_name(
 	struct win_backend* backend = context->backend_context;
 	struct win_device_info* info = device_info;
 
-	// TODO
+	// duplicate name
+	char* name = strdup(info->name);
+
+	if (name == NULL)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_ALLOC);
+		return NULL;
+	}
 
 	punknobs_error_ok(error);
-	return info->name;
+	return name;
 }
 
 unsigned punknobs_win_device_get_vendor_id(
@@ -155,8 +410,6 @@ unsigned punknobs_win_device_get_vendor_id(
 {
 	struct win_backend* backend = context->backend_context;
 	struct win_device_info* info = device_info;
-
-	// TODO
 
 	punknobs_error_ok(error);
 	return info->vendor_id;
@@ -170,8 +423,6 @@ unsigned punknobs_win_device_get_product_id(
 	struct win_backend* backend = context->backend_context;
 	struct win_device_info* info = device_info;
 
-	// TODO
-
 	punknobs_error_ok(error);
 	return info->product_id;
 }
@@ -184,8 +435,6 @@ bool punknobs_win_device_get_plugged(
 	struct win_backend* backend = context->backend_context;
 	struct win_device_info* info = device_info;
 
-	// TODO
-
 	punknobs_error_ok(error);
 	return info->plugged;
 }
@@ -197,8 +446,6 @@ bool punknobs_win_device_get_registered(
 {
 	struct win_backend* backend = context->backend_context;
 	struct win_device_info* info = device_info;
-
-	// TODO
 
 	punknobs_error_ok(error);
 	return info->registered;
@@ -213,10 +460,30 @@ intptr_t punknobs_win_input_get_punknobs_id(
 	struct win_backend* backend = context->backend_context;
 	struct win_input_info* info = input_info;
 
-	// TODO
+	switch (info->api)
+	{
+		case PUNKNOBS_WIN_API_DIRECTINPUT:
+		{
+			punknobs_error_ok(error);
+			return (intptr_t) info->device_enum_node.dinput;
+		}
+		case PUNKNOBS_WIN_API_XINPUT:
+		{
+			punknobs_error_ok(error);
+			return (intptr_t) info->device_enum_node.xinput;
+		}
+		default:
+		{
+			break;
+		}
+	}
 
-	punknobs_error_ok(error);
-	return info->punknobs_id;
+	punknobs_error_throw(
+		context,
+		error,
+		PUNKNOBS_ERROR_BACKEND_WIN_INVALID_API);
+
+	return (intptr_t) NULL;
 }
 
 void punknobs_win_input_get_time(
@@ -229,10 +496,8 @@ void punknobs_win_input_get_time(
 	struct win_backend* backend = context->backend_context;
 	struct win_input_info* info = input_info;
 
-	// TODO
-
-	*sec = 0;
-	*usec = 0;
+	*sec = info->time / 1000;
+	*usec = (info->time % 1000) * 1000;
 
 	punknobs_error_ok(error);
 }
@@ -245,10 +510,8 @@ unsigned punknobs_win_input_get_type(
 	struct win_backend* backend = context->backend_context;
 	struct win_input_info* info = input_info;
 
-	// TODO
-
 	punknobs_error_ok(error);
-	return 0;
+	return info->type;
 }
 
 unsigned punknobs_win_input_get_code(
@@ -259,10 +522,8 @@ unsigned punknobs_win_input_get_code(
 	struct win_backend* backend = context->backend_context;
 	struct win_input_info* info = input_info;
 
-	// TODO
-
 	punknobs_error_ok(error);
-	return 0;
+	return info->code;
 }
 
 unsigned punknobs_win_input_get_value(
@@ -273,10 +534,8 @@ unsigned punknobs_win_input_get_value(
 	struct win_backend* backend = context->backend_context;
 	struct win_input_info* info = input_info;
 
-	// TODO
-
 	punknobs_error_ok(error);
-	return 0;
+	return info->value;
 }
 
 // configurator

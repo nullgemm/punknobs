@@ -95,6 +95,25 @@ void punknobs_error_init(
 		"could not get device hardware name";
 	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_LIBEVDEV_NEXT_EVENT] =
 		"could not get next evdev event";
+	// win
+	log[PUNKNOBS_ERROR_BACKEND_WIN_MODULE_GET] =
+		"could not get application module";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_DINPUT_GET] =
+		"could not get DirectInput context";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_INVALID_API] =
+		"invalid input API";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_CREATE] =
+		"could not create mutex";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_DESTROY] =
+		"could not destroy mutex";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_THREAD_DEVICE_START] =
+		"could not start device thread";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_THREAD_DEVICE_CLOSE] =
+		"could not stop device thread";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_THREAD_INPUT_START] =
+		"could not start input thread";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_THREAD_INPUT_CLOSE] =
+		"could not stop input thread";
 	// macos
 	log[PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING] =
 		"could not convert string";
