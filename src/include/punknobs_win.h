@@ -18,22 +18,21 @@ struct punknobs_win_delays
 
 void punknobs_prepare_init_win(
 	struct punknobs_config_backend* config,
-	struct punknobs_config_win* data,
-	struct punknobs_error_info* error);
-
-enum punknobs_win_api punknobs_win_device_get_api(
-	struct punknobs* context,
-	void* backend_info,
-	struct punknobs_error_info* error);
-
-enum punknobs_win_api punknobs_win_input_get_api(
-	struct punknobs* context,
-	void* backend_info,
 	struct punknobs_error_info* error);
 
 void punknobs_win_set_delays(
 	struct punknobs* context,
 	struct punknobs_win_delays* delays,
+	struct punknobs_error_info* error);
+
+enum punknobs_win_api punknobs_win_device_get_api(
+	struct punknobs* context,
+	void* device_info,
+	struct punknobs_error_info* error);
+
+enum punknobs_win_api punknobs_win_input_get_api(
+	struct punknobs* context,
+	void* input_info,
 	struct punknobs_error_info* error);
 
 #endif

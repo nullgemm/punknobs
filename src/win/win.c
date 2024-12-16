@@ -231,8 +231,8 @@ void punknobs_win_input_get_time(
 
 	// TODO
 
-	*sec = info->input_event->input_event_sec;
-	*usec = info->input_event->input_event_usec;
+	*sec = 0;
+	*usec = 0;
 
 	punknobs_error_ok(error);
 }
@@ -248,7 +248,7 @@ unsigned punknobs_win_input_get_type(
 	// TODO
 
 	punknobs_error_ok(error);
-	return info->input_event->type;
+	return 0;
 }
 
 unsigned punknobs_win_input_get_code(
@@ -262,7 +262,7 @@ unsigned punknobs_win_input_get_code(
 	// TODO
 
 	punknobs_error_ok(error);
-	return info->input_event->code;
+	return 0;
 }
 
 unsigned punknobs_win_input_get_value(
@@ -276,7 +276,7 @@ unsigned punknobs_win_input_get_value(
 	// TODO
 
 	punknobs_error_ok(error);
-	return info->input_event->value;
+	return 0;
 }
 
 // configurator
@@ -308,4 +308,44 @@ void punknobs_prepare_init_win(
 	config->input_get_value = punknobs_win_input_get_value;
 
 	punknobs_error_ok(error);
+}
+
+void punknobs_win_set_delays(
+	struct punknobs* context,
+	struct punknobs_win_delays* delays,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	backend->delays = *delays;
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+enum punknobs_win_api punknobs_win_device_get_api(
+	struct punknobs* context,
+	void* device_info,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	struct win_device_info* info = device_info;
+
+	// TODO
+
+	punknobs_error_ok(error);
+	return info->api;
+}
+
+enum punknobs_win_api punknobs_win_input_get_api(
+	struct punknobs* context,
+	void* input_info,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	struct win_input_info* info = input_info;
+
+	// TODO
+
+	punknobs_error_ok(error);
+	return info->api;
 }

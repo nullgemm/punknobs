@@ -415,7 +415,7 @@ int main(int argc, char** argv)
 #elif defined(PUNKNOBS_EXAMPLE_EVDEV_POLL)
 	punknobs_prepare_init_evdev_poll(&config, &error_early);
 #elif defined(PUNKNOBS_EXAMPLE_WIN)
-	punknobs_prepare_init_win(&config, &data, &error_early);
+	punknobs_prepare_init_win(&config, &error_early);
 #elif defined(PUNKNOBS_EXAMPLE_MACOS)
 	punknobs_prepare_init_macos(&config, &error_early);
 #endif
@@ -457,8 +457,8 @@ int main(int argc, char** argv)
 	// configure windows polling delays
 	struct punknobs_win_delays delays =
 	{
-		.delay_device_refresh = 3000;
-		.delay_input_refresh = 16;
+		.delay_device_refresh = 3000,
+		.delay_input_refresh = 16,
 	};
 
 	punknobs_win_set_delays(punknobs, &delays, &error);
