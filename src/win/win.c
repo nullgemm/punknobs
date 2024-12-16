@@ -575,6 +575,7 @@ void punknobs_win_set_delays(
 	struct punknobs_error_info* error)
 {
 	struct win_backend* backend = context->backend_context;
+
 	backend->delays = *delays;
 
 	// all good
@@ -589,8 +590,6 @@ enum punknobs_win_api punknobs_win_device_get_api(
 	struct win_backend* backend = context->backend_context;
 	struct win_device_info* info = device_info;
 
-	// TODO
-
 	punknobs_error_ok(error);
 	return info->api;
 }
@@ -602,8 +601,6 @@ enum punknobs_win_api punknobs_win_input_get_api(
 {
 	struct win_backend* backend = context->backend_context;
 	struct win_input_info* info = input_info;
-
-	// TODO
 
 	punknobs_error_ok(error);
 	return info->api;
