@@ -468,6 +468,7 @@ void punknobs_win_register_add(
 		// save cross-pointers and info
 		dinput_node->reg_entry = reg_device;
 		reg_device->enum_entry = dinput_node;
+		dinput_node->info.registered = true;
 		memset(&(reg_device->state), 0, sizeof (DIJOYSTATE));
 
 		// unlock mutex
@@ -518,6 +519,12 @@ void punknobs_win_register_add(
 	// search for XInput devices
 	struct win_device_enum_node_xinput* xinput_node = backend->ref_enum_devices_xinput;
 
+	// same dumb hack to actually register in internal enumerations
+	if (xinput_node == NULL)
+	{
+		xinput_node = backend->new_enum_devices_xinput;
+	}
+
 	while (xinput_node != NULL)
 	{
 		if (id == ((intptr_t) xinput_node))
@@ -561,6 +568,7 @@ void punknobs_win_register_add(
 		// save cross-pointers and info
 		xinput_node->reg_entry = reg_device;
 		reg_device->enum_entry = xinput_node;
+		xinput_node->info.registered = true;
 		memset(&(reg_device->state), 0, sizeof (XINPUT_STATE));
 
 		// unlock mutex
@@ -648,8 +656,12 @@ void punknobs_win_register_del(
 			}
 
 			dinput_node->enum_entry->reg_entry = NULL;
+			dinput_node->enum_entry->info.registered = false;
+// TODO do this in helpers when we delete devices
+#if 0
 			dinput_node->enum_entry->device->lpVtbl->Unacquire(dinput_node->enum_entry->device);
 			dinput_node->enum_entry->device->lpVtbl->Release(dinput_node->enum_entry->device);
+#endif
 			free(dinput_node);
 			break;
 		}
@@ -705,6 +717,7 @@ void punknobs_win_register_del(
 			}
 
 			xinput_node->enum_entry->reg_entry = NULL;
+			xinput_node->enum_entry->info.registered = false;
 			free(xinput_node);
 			break;
 		}

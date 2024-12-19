@@ -314,7 +314,10 @@ unsigned __stdcall device_loop(void* data)
 					error);
 
 				// we can free temporary strings in all cases
-				free(ref_ptr->info.name);
+				if (ref_ptr->info.api != PUNKNOBS_WIN_API_XINPUT)
+				{
+					free(ref_ptr->info.name);
+				}
 
 				// continue even in case of error
 				if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
@@ -573,7 +576,6 @@ unsigned __stdcall device_loop(void* data)
 							xinput_ref_ptr->reg_entry;
 					}
 
-					xinput_new_part->id = xinput_ref_ptr->id;
 					xinput_new_part->info = xinput_ref_ptr->info;
 
 					// unlock mutex
