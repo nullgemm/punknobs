@@ -408,6 +408,12 @@ void punknobs_win_register_add(
 	// search for DirectInput devices
 	struct win_device_enum_node_dinput* dinput_node = backend->ref_enum_devices_dinput;
 
+	// hack to make it work from internal device updates
+	if (dinput_node == NULL)
+	{
+		dinput_node = backend->new_enum_devices_dinput;
+	}
+
 	while (dinput_node != NULL)
 	{
 		if (id == ((intptr_t) dinput_node))

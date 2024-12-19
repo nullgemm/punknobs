@@ -234,6 +234,10 @@ unsigned __stdcall device_loop(void* data)
 						new_part->reg_entry = ref_ptr->reg_entry;
 					}
 
+					// copy device
+					new_part->device = ref_ptr->device;
+					new_part->info = ref_ptr->info;
+
 					// unlock mutex
 					BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
 
@@ -299,7 +303,7 @@ unsigned __stdcall device_loop(void* data)
 			}
 
 			// device was removed, call unregistration callback
-			if ((new_part == NULL) && (ref_ptr->reg_entry != NULL))
+			if (new_part == NULL)
 			{
 				ref_ptr->info.plugged = false;
 
@@ -308,6 +312,9 @@ unsigned __stdcall device_loop(void* data)
 					punknobs->device_custom_data,
 					&(ref_ptr->info),
 					error);
+
+				// we can free temporary strings in all cases
+				free(ref_ptr->info.name);
 
 				// continue even in case of error
 				if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
@@ -478,9 +485,6 @@ unsigned __stdcall device_loop(void* data)
 				device->lpVtbl->Release(device);
 			}
 
-			// we can free temporary strings in all cases
-			free(name);
-
 			// continue even in case of error
 			if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
 			{
@@ -569,6 +573,9 @@ unsigned __stdcall device_loop(void* data)
 							xinput_ref_ptr->reg_entry;
 					}
 
+					xinput_new_part->id = xinput_ref_ptr->id;
+					xinput_new_part->info = xinput_ref_ptr->info;
+
 					// unlock mutex
 					BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
 
@@ -634,7 +641,7 @@ unsigned __stdcall device_loop(void* data)
 			}
 
 			// device was removed, call unregistration callback
-			if ((xinput_new_part == NULL) && (xinput_ref_ptr->reg_entry != NULL))
+			if (xinput_new_part == NULL)
 			{
 				xinput_ref_ptr->info.plugged = false;
 

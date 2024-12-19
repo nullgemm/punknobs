@@ -198,7 +198,7 @@ static void devices_callback(
 	{
 #if defined(PUNKNOBS_EXAMPLE_WIN)
 		printf(
-			"device plugged: \"%s\" (%s), VID: %u, PID: %u, registered: %s, punknobs id: %p\n",
+			"device removed: \"%s\" (%s), VID: %u, PID: %u, registered: %s, punknobs id: %p\n",
 			name,
 			api_name,
 			vid,
