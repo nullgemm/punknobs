@@ -685,7 +685,7 @@ unsigned __stdcall device_loop(void* data)
 				.name = PUNKNOBS_XUSB_HARDWARE_NAME,
 				.vendor_id = (unsigned) -1,
 				.product_id = (unsigned) -1,
-				.plugged = false,
+				.plugged = true,
 				.registered = false,
 				.api = PUNKNOBS_WIN_API_XINPUT,
 				.device_enum_node.xinput = xinput_new_part,
