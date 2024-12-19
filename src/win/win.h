@@ -32,7 +32,6 @@ struct win_device_info
 
 struct win_input_info
 {
-	IDirectInputDevice8* device;
 	DWORD time;
 	unsigned short type;
 	unsigned short code;
