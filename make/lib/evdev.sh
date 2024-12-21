@@ -132,11 +132,11 @@ exit 1
 esac
 
 ninja_file=lib_evdev.ninja
-src+=("src/evdev/evdev_""$poll"".c")
-src+=("src/evdev/evdev_""$poll""_helpers.c")
+src+=("src/evdev/""$poll""/evdev_""$poll"".c")
+src+=("src/evdev/""$poll""/evdev_""$poll""_helpers.c")
 
 # save symbols file path
-symbols_file="src/evdev/symbols_evdev.txt"
+symbols_file="src/evdev/""$poll""/symbols_evdev_""$poll"".txt"
 
 # default target
 default+=("\$folder_library/\$name.a")

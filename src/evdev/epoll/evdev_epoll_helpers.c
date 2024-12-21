@@ -3,8 +3,8 @@
 #include "include/punknobs.h"
 
 #include "common/punknobs_private.h"
-#include "evdev/evdev_epoll.h"
-#include "evdev/evdev_epoll_helpers.h"
+#include "evdev/epoll/evdev_epoll.h"
+#include "evdev/epoll/evdev_epoll_helpers.h"
 
 #include <ctype.h>
 #include <dirent.h>
