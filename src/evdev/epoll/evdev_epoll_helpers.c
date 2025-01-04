@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+
 // *heavy sigh*
 #if defined(_POSIX_MONOTONIC_CLOCK)
 #define PUNKNOBS_EVDEV_EPOLL_CLOCK CLOCK_MONOTONIC
@@ -29,16 +30,16 @@
 #define PUNKNOBS_EVDEV_EPOLL_CLOCK CLOCK_REALTIME
 #endif
 
+// attempt at supporting BSDs
+#ifndef NAME_MAX
+#define NAME_MAX MAXNAMLEN
+#endif
+
 // settings for the input descriptors watcher
 #define INPUT_EVENT_FILE_PATH "/dev/input"
 #define INPUT_EVENT_SIZE ((sizeof (struct inotify_event)) + NAME_MAX + 1)
 #define INPUT_EVENT_BUF_SIZE (INPUT_EVENT_SIZE * 15)
 #define DEVICE_RETRY_TIMEOUT 2000
-
-// attempt at supporting BSDs
-#ifndef NAME_MAX
-#define NAME_MAX MAXNAMLEN
-#endif
 
 
 // local helpers
