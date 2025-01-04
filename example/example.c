@@ -397,16 +397,6 @@ int main(int argc, char** argv)
 
 	printf("starting the common punknobs example\n");
 
-	// allocate an id save
-	size_t ids_max = IDS_INCREMENT;
-	int* ids = malloc(ids_max * (sizeof (int)));
-
-	if (ids == NULL)
-	{
-		fprintf(stderr, "error allocating device ids array\n");
-		return 1;
-	}
-
 	// prepare function pointers
 	struct punknobs_config_backend config = {0};
 
@@ -617,7 +607,10 @@ int main(int argc, char** argv)
 	}
 
 	// release the id save
-	free(ids);
+	if (callback_data.ids != NULL)
+	{
+		free(callback_data.ids);
+	}
 
 	// all good
 	return 0;

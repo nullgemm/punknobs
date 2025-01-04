@@ -350,6 +350,8 @@ static void run_device_callback(
 
 	if (plugged == false)
 	{
+		free(info.path);
+		free(info.name);
 		free(device_del->info.path);
 		free(device_del->info.name);
 		free(device_del);
