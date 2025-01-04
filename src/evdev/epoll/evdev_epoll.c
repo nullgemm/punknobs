@@ -252,7 +252,7 @@ void punknobs_evdev_epoll_clean(
 	close(backend->pipe_fds_device_loop[0]);
 
 	// clean device resources
-	struct evdev_epoll_info* input_loop_fds;
+	struct evdev_epoll_info* input_loop_fds = NULL;
 
 	// free pipe fd
 	if (backend->input_loop_fds != NULL)
