@@ -602,6 +602,19 @@ void punknobs_evdev_epoll_register_add(
 		return;
 	}
 
+	char* path_copy = strdup(info->path);
+
+	if (path_copy == NULL)
+	{
+		close(fd);
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_STRDUP);
+		return;
+	}
+
 	// add to watch list
 	struct evdev_epoll_info* new_device =
 		(struct evdev_epoll_info*) info->punknobs_id;
@@ -610,7 +623,7 @@ void punknobs_evdev_epoll_register_add(
 	new_device->epoll_event.data.ptr = new_device;
 	new_device->epoll_event.events = EPOLLIN;
 	new_device->evdev_context = libevdev_ctx;
-	new_device->device_path = info->path;
+	new_device->device_path = path_copy;
 	new_device->device_fd = fd;
 	new_device->next = backend->input_loop_last->next;
 	backend->input_loop_last->next = new_device;

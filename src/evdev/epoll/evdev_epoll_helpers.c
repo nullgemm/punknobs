@@ -278,8 +278,29 @@ static void run_device_callback(
 				device_del->info.removing = true;
 
 				info.punknobs_id = id;
-				info.path = device_del->info.path;
-				info.name = device_del->info.name;
+
+				info.path = strdup(device_del->info.path);
+
+				if (info.path == NULL)
+				{
+					punknobs_error_throw(
+						context,
+						error,
+						PUNKNOBS_ERROR_POSIX_STRDUP);
+					return;
+				}
+
+				info.name = strdup(device_del->info.name);
+
+				if (info.name == NULL)
+				{
+					punknobs_error_throw(
+						context,
+						error,
+						PUNKNOBS_ERROR_POSIX_STRDUP);
+					return;
+				}
+
 				info.vendor_id = device_del->info.vendor_id;
 				info.product_id = device_del->info.product_id;
 				info.plugged = plugged;
@@ -329,6 +350,7 @@ static void run_device_callback(
 
 	if (plugged == false)
 	{
+		free(device_del->info.path);
 		free(device_del->info.name);
 		free(device_del);
 	}
