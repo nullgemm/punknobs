@@ -633,8 +633,13 @@ static void device_handle(
 				input_loop_fds = input_loop_fds->next;
 			}
 
-			id = (input_loop_fds != NULL) ? (intptr_t) input_loop_fds : (intptr_t) NULL;
+			id = (intptr_t) input_loop_fds;
 			plugged = false;
+
+			if (input_loop_fds == NULL)
+			{
+				skip = true;
+			}
 		}
 		else
 		{
