@@ -921,6 +921,15 @@ unsigned __stdcall input_loop(void* data)
 
 		while (node != NULL)
 		{
+			struct win_device_info* device_info = &(node->enum_entry->info);
+
+			if ((device_info->plugged == false) || (device_info->registered == false))
+			{
+				// ignore
+				node = node->next;
+				continue;
+			}
+
 			// get device state
 			error_state =
 				node->enum_entry->device->lpVtbl->GetDeviceState(
