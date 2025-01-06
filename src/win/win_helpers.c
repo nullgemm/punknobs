@@ -36,6 +36,7 @@ static BOOL CALLBACK device_enum_callback(LPCDIDEVICEINSTANCE instance, LPVOID d
 
 	if (main_lock != WAIT_OBJECT_0)
 	{
+		free(enum_device);
 		punknobs_error_throw(
 			punknobs,
 			&error,
@@ -305,6 +306,7 @@ unsigned __stdcall device_loop(void* data)
 			// device was removed, call unregistration callback
 			if (new_part == NULL)
 			{
+				bool registered = ref_ptr->info.registered;
 				ref_ptr->info.plugged = false;
 
 				// call user callback
@@ -317,6 +319,13 @@ unsigned __stdcall device_loop(void* data)
 				if (ref_ptr->info.api != PUNKNOBS_WIN_API_XINPUT)
 				{
 					free(ref_ptr->info.name);
+				}
+
+				// release device if it was registered
+				if (registered == true)
+				{
+					ref_ptr->device->lpVtbl->Unacquire(ref_ptr->device);
+					ref_ptr->device->lpVtbl->Release(ref_ptr->device);
 				}
 
 				// continue even in case of error
@@ -718,15 +727,21 @@ unsigned __stdcall device_loop(void* data)
 			xinput_new_part = xinput_new_part->next;
 		}
 
-		// ## Save new enumeration list as reference enumeration list
-		struct win_device_enum_node_dinput* tmp_node =
-			backend->ref_enum_devices_dinput;
-		struct win_device_enum_node_dinput* tmp_next =
-			NULL;
-		struct win_device_enum_node_xinput* tmp_xinput_node =
-			backend->ref_enum_devices_xinput;
-		struct win_device_enum_node_xinput* tmp_xinput_next =
-			NULL;
+		// lock mutex
+		DWORD reg_lock =
+			WaitForSingleObject(
+				backend->mutex_reg,
+				INFINITE);
+
+		if (reg_lock != WAIT_OBJECT_0)
+		{
+			punknobs_error_throw(
+				punknobs,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+			_endthreadex(0);
+			return 1;
+		}
 
 		// lock mutex
 		DWORD enum_lock =
@@ -744,24 +759,19 @@ unsigned __stdcall device_loop(void* data)
 			return 1;
 		}
 
+		// ## Save new enumeration list as reference enumeration list
+		struct win_device_enum_node_dinput* tmp_node =
+			backend->ref_enum_devices_dinput;
+		struct win_device_enum_node_dinput* tmp_next =
+			NULL;
+		struct win_device_enum_node_xinput* tmp_xinput_node =
+			backend->ref_enum_devices_xinput;
+		struct win_device_enum_node_xinput* tmp_xinput_next =
+			NULL;
+
 		// replace reference enumeration list
 		backend->ref_enum_devices_dinput = backend->new_enum_devices_dinput;
 		backend->ref_enum_devices_xinput = backend->new_enum_devices_xinput;
-
-		// free old reference enumeration list
-		while (tmp_node != NULL)
-		{
-			tmp_next = tmp_node->next;
-			free(tmp_node);
-			tmp_node = tmp_next;
-		}
-
-		while (tmp_xinput_node != NULL)
-		{
-			tmp_xinput_next = tmp_xinput_node->next;
-			free(tmp_xinput_node);
-			tmp_xinput_node = tmp_xinput_next;
-		}
 
 		// copy enum entry pointer
 		new_part = backend->new_enum_devices_dinput;
@@ -792,10 +802,38 @@ unsigned __stdcall device_loop(void* data)
 		backend->new_enum_devices_dinput = NULL;
 		backend->new_enum_devices_xinput = NULL;
 
+		// free old reference enumeration list
+		while (tmp_node != NULL)
+		{
+			tmp_next = tmp_node->next;
+			free(tmp_node);
+			tmp_node = tmp_next;
+		}
+
+		while (tmp_xinput_node != NULL)
+		{
+			tmp_xinput_next = tmp_xinput_node->next;
+			free(tmp_xinput_node);
+			tmp_xinput_node = tmp_xinput_next;
+		}
+
 		// unlock mutex
 		BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
 
 		if (enum_unlock == 0)
+		{
+			punknobs_error_throw(
+				punknobs,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			_endthreadex(0);
+			return 1;
+		}
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
 		{
 			punknobs_error_throw(
 				punknobs,

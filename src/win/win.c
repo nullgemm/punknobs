@@ -406,13 +406,7 @@ void punknobs_win_register_add(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->ref_enum_devices_dinput;
-
-	// hack to make it work from internal device updates
-	if (dinput_node == NULL)
-	{
-		dinput_node = backend->new_enum_devices_dinput;
-	}
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
 
 	while (dinput_node != NULL)
 	{
@@ -517,13 +511,7 @@ void punknobs_win_register_add(
 	}
 
 	// search for XInput devices
-	struct win_device_enum_node_xinput* xinput_node = backend->ref_enum_devices_xinput;
-
-	// same dumb hack to actually register in internal enumerations
-	if (xinput_node == NULL)
-	{
-		xinput_node = backend->new_enum_devices_xinput;
-	}
+	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
 
 	while (xinput_node != NULL)
 	{
@@ -616,6 +604,18 @@ void punknobs_win_register_add(
 		return;
 	}
 
+	// ignore invalid register requests
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+		return;
+	}
+
 	// ignore missing devices
 	punknobs_error_ok(error);
 }
@@ -657,11 +657,6 @@ void punknobs_win_register_del(
 
 			dinput_node->enum_entry->reg_entry = NULL;
 			dinput_node->enum_entry->info.registered = false;
-// TODO do this in helpers when we delete devices
-#if 0
-			dinput_node->enum_entry->device->lpVtbl->Unacquire(dinput_node->enum_entry->device);
-			dinput_node->enum_entry->device->lpVtbl->Release(dinput_node->enum_entry->device);
-#endif
 			free(dinput_node);
 			break;
 		}
