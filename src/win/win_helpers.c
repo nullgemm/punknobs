@@ -658,7 +658,6 @@ unsigned __stdcall device_loop(void* data)
 			if (xinput_new_part == NULL)
 			{
 				xinput_ref_ptr->info.plugged = false;
-				xinput_ref_ptr->info.api = PUNKNOBS_WIN_API_XINPUT;
 
 				// call user callback
 				punknobs->device_callback(
