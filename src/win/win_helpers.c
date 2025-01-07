@@ -316,7 +316,7 @@ unsigned __stdcall device_loop(void* data)
 					error);
 
 				// we can free temporary strings in all cases
-				if (ref_ptr->info.api != PUNKNOBS_WIN_API_XINPUT)
+				if (ref_ptr->info.api == PUNKNOBS_WIN_API_DIRECTINPUT)
 				{
 					free(ref_ptr->info.name);
 				}
@@ -655,6 +655,7 @@ unsigned __stdcall device_loop(void* data)
 			if (xinput_new_part == NULL)
 			{
 				xinput_ref_ptr->info.plugged = false;
+				xinput_ref_ptr->info.api = PUNKNOBS_WIN_API_XINPUT;
 
 				// call user callback
 				punknobs->device_callback(
@@ -1125,6 +1126,15 @@ unsigned __stdcall input_loop(void* data)
 
 		while (xinput_node != NULL)
 		{
+			struct win_device_info* device_info = &(xinput_node->enum_entry->info);
+
+			if ((device_info->plugged == false) || (device_info->registered == false))
+			{
+				// ignore
+				xinput_node = xinput_node->next;
+				continue;
+			}
+
 			XINPUT_STATE state;
 			memset(&state, 0, sizeof (XINPUT_STATE));
 
