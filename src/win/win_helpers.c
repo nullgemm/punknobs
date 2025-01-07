@@ -170,6 +170,7 @@ unsigned __stdcall device_loop(void* data)
 	DWORD timer = 0;
 	DWORD millis = 0;
 	DWORD last_timer = 0;
+	bool reenumerate = false;
 
 	while (closed == false)
 	{
@@ -178,9 +179,58 @@ unsigned __stdcall device_loop(void* data)
 		// use it to compute last loop's duration
 		timer = elapsed(millis, last_timer);
 		// sleep until the configured delay elapsed
+		// (and always set the `reenumerate` bool!)
 		if (timer < backend->delays.delay_device_refresh)
 		{
-			Sleep(backend->delays.delay_device_refresh - timer);
+			DWORD error_sleep =
+				WaitForSingleObject(
+					backend->reenumeration_handler,
+					backend->delays.delay_device_refresh - timer);
+
+			// interrupted by reenumeration request
+			reenumerate = (error_sleep == WAIT_OBJECT_0);
+
+			if (reenumerate == true)
+			{
+				BOOL error_event =
+					ResetEvent(backend->reenumeration_handler);
+
+				if (error_event == 0)
+				{
+					punknobs_error_throw(
+						punknobs,
+						error,
+						PUNKNOBS_ERROR_BACKEND_WIN_EVENT_RESET);
+					_endthreadex(0);
+					return 1;
+				}
+			}
+		}
+		else
+		{
+			DWORD error_sleep =
+				WaitForSingleObject(
+					backend->reenumeration_handler,
+					0);
+
+			// received reenumeration request
+			reenumerate = (error_sleep == WAIT_OBJECT_0);
+
+			if (reenumerate == true)
+			{
+				BOOL error_event =
+					ResetEvent(backend->reenumeration_handler);
+
+				if (error_event == 0)
+				{
+					punknobs_error_throw(
+						punknobs,
+						error,
+						PUNKNOBS_ERROR_BACKEND_WIN_EVENT_RESET);
+					_endthreadex(0);
+					return 1;
+				}
+			}
 		}
 		// update loop's time reference with current time
 		last_timer = GetTickCount();
@@ -353,7 +403,25 @@ unsigned __stdcall device_loop(void* data)
 		}
 
 		// ## Register newly plugged devices
-		new_part = new_part_start;
+		if (reenumerate == true)
+		{
+			new_part = backend->new_enum_devices_dinput;
+
+			while (new_part != new_part_start)
+			{
+				// call user callback
+				punknobs->device_callback(
+					punknobs->device_custom_data,
+					&(new_part->info),
+					error);
+
+				new_part = new_part->next;
+			}
+		}
+		else
+		{
+			new_part = new_part_start;
+		}
 
 		while (new_part != NULL)
 		{
@@ -690,7 +758,25 @@ unsigned __stdcall device_loop(void* data)
 		}
 
 		// ## Register xinput devices
-		xinput_new_part = xinput_new_part_start;
+		if (reenumerate == true)
+		{
+			xinput_new_part = backend->new_enum_devices_xinput;
+
+			while (xinput_new_part != xinput_new_part_start)
+			{
+				// call user callback
+				punknobs->device_callback(
+					punknobs->device_custom_data,
+					&(xinput_new_part->info),
+					error);
+
+				xinput_new_part = xinput_new_part->next;
+			}
+		}
+		else
+		{
+			xinput_new_part = xinput_new_part_start;
+		}
 
 		while (xinput_new_part != NULL)
 		{

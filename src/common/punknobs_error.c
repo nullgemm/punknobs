@@ -110,6 +110,14 @@ void punknobs_error_init(
 		"could not lock mutex";
 	log[PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK] =
 		"could not unlock mutex";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_EVENT_CREATE] =
+		"could not create event";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_EVENT_OPEN] =
+		"could not open event";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_EVENT_RESET] =
+		"could not reset event";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_EVENT_DESTROY] =
+		"could not destroy event";
 	log[PUNKNOBS_ERROR_BACKEND_WIN_THREAD_DEVICE_START] =
 		"could not start device thread";
 	log[PUNKNOBS_ERROR_BACKEND_WIN_THREAD_DEVICE_CLOSE] =

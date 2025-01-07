@@ -52,6 +52,24 @@ void punknobs_win_init(
 	backend->ref_enum_devices_xinput = NULL;
 	backend->reg_devices_xinput = NULL;
 
+	// create reenumeration event
+	backend->reenumeration_handler =
+		CreateEventA(
+			NULL,
+			TRUE,
+			FALSE,
+			NULL);
+
+	if (backend->reenumeration_handler == NULL)
+	{
+		free(backend);
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_EVENT_CREATE);
+		return;
+	}
+
 	// main mutex
 	backend->mutex_main = CreateMutexW(NULL, FALSE, NULL);
 
@@ -193,6 +211,17 @@ void punknobs_win_clean(
 			context,
 			error,
 			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_DESTROY);
+		return;
+	}
+
+	ok = CloseHandle(backend->reenumeration_handler);
+
+	if (ok == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_EVENT_DESTROY);
 		return;
 	}
 
@@ -750,7 +779,8 @@ void punknobs_win_reenumerate(
 {
 	struct win_backend* backend = context->backend_context;
 
-	// TODO
+	// signal device loop
+	SetEvent(backend->reenumeration_handler);
 
 	// all good
 	punknobs_error_ok(error);
