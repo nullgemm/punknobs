@@ -304,7 +304,7 @@ unsigned __stdcall device_loop(void* data)
 			}
 
 			// device was removed, call unregistration callback
-			if (new_part == NULL)
+			if ((new_part == NULL) && (ref_ptr->xinput_compatible == false))
 			{
 				bool registered = ref_ptr->info.registered;
 				ref_ptr->info.plugged = false;
@@ -420,9 +420,12 @@ unsigned __stdcall device_loop(void* data)
 			if (strstr(hid_path, "IG_") != NULL)
 			{
 				// skip xbox controllers
+				new_part->xinput_compatible = true;
 				new_part = new_part->next;
 				continue;
 			}
+
+			new_part->xinput_compatible = false;
 
 			// get direct input device info
 			DIDEVICEINSTANCE dinput_info =

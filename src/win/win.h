@@ -57,6 +57,7 @@ struct win_device_enum_node_dinput
 	struct win_device_reg_node_dinput* reg_entry;
 	struct win_device_enum_node_dinput* next;
 	struct win_device_info info;
+	bool xinput_compatible;
 };
 
 // reg nodes
