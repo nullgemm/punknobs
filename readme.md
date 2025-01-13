@@ -85,3 +85,35 @@ macOS:
  - IOHIDDevice.h
  - IOHIDManager.h
  - Foundation.h
+
+## Testing
+Linux:
+PunKnobs fully supports modern-day Linux input stack madness, and is capable of
+detecting when systemd blesses your input devices with updated ACL permissions.
+Of course some extra setup might be required for your peripherals to work and be
+detected on Linux in the first place, and for your user to get the permissions.
+On most distributions everything should work out-of-the-box.
+
+Windows:
+Everything with a driver exposing a DirectInput gamepad interface is supported.
+XInput also works, and for devices supporting both DirectInput and XInput,
+only the XInput interface will be acknowledged, ignoring DirectInput.
+
+Wine:
+Yes, Wine is fully supported. However, to be able to use DirectInput devices,
+you will need to get a native "dinput8.dll" (typically from `winetricks`),
+before changing its overrides to "Native then Builtin" (in `winecfg`).
+Now beware: for most gamepads Wine will emulate an XInput device using the SDL,
+in an effort to make it easier for users to play games without extra homework.
+
+To fall back to a more "faithful" emulation using DirectInput instead of XInput,
+you can also use a native dll for "xinput_1_3" (also available in `winetricks`),
+set the overrides for it to "Native then Builtin" as well (still in `winecfg`),
+and add this registry key to your wine prefix to disable the SDL backend:
+```
+wine reg add "HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\winebus" /v "Enable SDL" /t REG_DWORD /d 0
+```
+This will help you test device plugging and unplugging for all DirectInput pads,
+with the somewhat unfortunate drawback of not getting any input from them...
+Wine will instead report missing implementation features, as code for this has
+yet to be written by fellow courageous programmers (Hi!).
