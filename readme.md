@@ -87,19 +87,19 @@ macOS:
  - Foundation.h
 
 ## Testing
-Linux:
+### Linux
 PunKnobs fully supports modern-day Linux input stack madness, and is capable of
 detecting when systemd blesses your input devices with updated ACL permissions.
 Of course some extra setup might be required for your peripherals to work and be
 detected on Linux in the first place, and for your user to get the permissions.
 On most distributions everything should work out-of-the-box.
 
-Windows:
+### Windows
 Everything with a driver exposing a DirectInput gamepad interface is supported.
 XInput also works, and for devices supporting both DirectInput and XInput,
 only the XInput interface will be acknowledged, ignoring DirectInput.
 
-Wine:
+### Wine
 Yes, Wine is fully supported. However, to be able to use DirectInput devices,
 you will need to get a native "dinput8.dll" (typically from `winetricks`),
 before changing its overrides to "Native then Builtin" (in `winecfg`).
@@ -117,3 +117,9 @@ This will help you test device plugging and unplugging for all DirectInput pads,
 with the somewhat unfortunate drawback of not getting any input from them...
 Wine will instead report missing implementation features, as code for this has
 yet to be written by fellow courageous programmers (Hi!).
+
+### macOS
+Any USB-HID gamepad should work out-of-the-box. XUSB devices are not supported
+by Apple, but third-party drivers are available on the net to fix that.
+You might not need a driver to use XUSB devices in wireless mode, as in that
+case they will obviously not be using the wired XUSB protocol.
