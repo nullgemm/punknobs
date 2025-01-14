@@ -1,5 +1,6 @@
 # PunKnobs
 PunKnobs is a portable gamepad abstraction library for Linux, Windows and macOS.
+Although feature-complete, it should still be considered highly experimental.
 
 ## API compatibility
  - Linux: evdev
@@ -27,8 +28,8 @@ PunKnobs abstracts input reports behind a single callback.
 For APIs with input callback support, it is ran in a fairly straightforward way.
 When the API reports inputs through events, it is executed as part of a loop.
 In the unfortunate case of an API that only supports polling, the user is
-expected to set a polling rate (a guide about that is available below) and the
-callback will be called as part of an internal loop as well, paced as requested.
+expected to set a polling rate and the callback will be called as part of an
+internal loop as well, paced as requested.
 
 The goal here is to make sure any current and future game input API can be
 supported, while providing maximum abstraction and flexibility.
@@ -115,8 +116,7 @@ wine reg add "HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\winebus" /v "
 ```
 This will help you test device plugging and unplugging for all DirectInput pads,
 with the somewhat unfortunate drawback of not getting any input from them...
-Wine will instead report missing implementation features, as code for this has
-yet to be written by fellow courageous programmers (Hi!).
+Wine will instead report missing implementation features.
 
 ### macOS
 Any USB-HID gamepad should work out-of-the-box. XUSB devices are not supported
