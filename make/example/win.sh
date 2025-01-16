@@ -247,7 +247,7 @@ echo ""; \
 
 { \
 echo "rule generator"; \
-echo "    command = make/lib/win.sh $build"; \
+echo "    command = make/example/win.sh $build"; \
 echo "    description = re-generating the ninja build file"; \
 echo ""; \
 } >> "$output/$ninja_file"
