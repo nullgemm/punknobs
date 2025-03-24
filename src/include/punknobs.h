@@ -81,6 +81,132 @@ struct punknobs_error_info
 	unsigned line;
 };
 
+// ## haptics types
+// reports types
+enum punknobs_haptics_feature
+{
+	PUNKNOBS_HAPTICS_FEATURE_RUMBLE = 0,
+	PUNKNOBS_HAPTICS_FEATURE_PERIODIC,
+	PUNKNOBS_HAPTICS_FEATURE_CONSTANT,
+	PUNKNOBS_HAPTICS_FEATURE_SPRING,
+	PUNKNOBS_HAPTICS_FEATURE_FRICTION,
+	PUNKNOBS_HAPTICS_FEATURE_DAMPER,
+	PUNKNOBS_HAPTICS_FEATURE_INERTIA,
+	PUNKNOBS_HAPTICS_FEATURE_RAMP,
+	PUNKNOBS_HAPTICS_FEATURE_GAIN,
+	PUNKNOBS_HAPTICS_FEATURE_AUTOCENTER,
+	// special
+	PUNKNOBS_HAPTICS_FEATURE_COUNT,
+};
+
+enum punknobs_haptics_waveform
+{
+	PUNKNOBS_HAPTICS_WAVEFORM_SQUARE = 0,
+	PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE,
+	PUNKNOBS_HAPTICS_WAVEFORM_SINE,
+	PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP,
+	PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN,
+	PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM,
+	// special
+	PUNKNOBS_HAPTICS_WAVEFORM_COUNT,
+};
+
+struct punknobs_haptics_features
+{
+	enum punknobs_haptics_feature* list;
+	size_t count;
+};
+
+struct punknobs_haptics_waveforms
+{
+	enum punknobs_haptics_waveform* list;
+	size_t count;
+};
+
+struct punknobs_haptics_envelope
+{
+	int attack_length;
+	int attack_level;
+	int fade_length;
+	int fade_level;
+};
+
+// effects types
+struct punknobs_haptics_effect_constant
+{
+	int level;
+	struct punknobs_haptics_envelope envelope;
+};
+
+struct punknobs_haptics_effect_ramp
+{
+	int start_level;
+	int end_level;
+	struct punknobs_haptics_envelope envelope;
+};
+
+struct punknobs_haptics_effect_periodic
+{
+	int waveform;
+	int period;
+	int magnitude;
+	int offset;
+	int phase;
+
+	struct punknobs_haptics_envelope envelope;
+
+	uint32_t custom_len;
+	uint16_t *custom_data;
+};
+
+struct punknobs_haptics_effect_condition
+{
+	int right_saturation;
+	int left_saturation;
+	int right_coeff;
+	int left_coeff;
+	int deadband;
+	int center;
+};
+
+struct punknobs_haptics_effect_rumble
+{
+	int strong_magnitude;
+	int weak_magnitude;
+};
+
+union punknobs_haptics_effect_config
+{
+	struct punknobs_haptics_effect_constant constant;
+	struct punknobs_haptics_effect_ramp ramp;
+	struct punknobs_haptics_effect_periodic periodic;
+	struct punknobs_haptics_effect_condition condition[2];
+	struct punknobs_haptics_effect_rumble rumble;
+};
+
+struct punknobs_haptics_effect_trigger
+{
+	int button;
+	int interval;
+};
+
+struct punknobs_haptics_effect_replay
+{
+	int length;
+	int delay;
+};
+
+struct punknobs_haptics_effect
+{
+	int type;
+	int id;
+	int direction;
+
+	struct punknobs_haptics_effect_trigger trigger;
+	struct punknobs_haptics_effect_replay replay;
+	union punknobs_haptics_effect_config config;
+};
+
 // ## backend configuration structure
 // depends on most of the above
 struct punknobs_config_backend
@@ -226,6 +352,64 @@ void punknobs_register_del(
 // re-list all plugged-in devices
 void punknobs_reenumerate(
 	struct punknobs* context,
+	struct punknobs_error_info* error);
+
+// ## haptics management
+// get the haptic features supported by the device
+void punknobs_haptics_get_features(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_features* features,
+	struct punknobs_error_info* error);
+
+// get the waveforms supported by the periodic effect (if applicable)
+void punknobs_haptics_get_waveforms(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_waveforms* waveforms,
+	struct punknobs_error_info* error);
+
+// set haptics effect in specified slot or adds it to a free slot
+int punknobs_haptics_effect_set(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_effect* effect,
+	struct punknobs_error_info* error);
+
+// removes haptics effect from specified slot
+void punknobs_haptics_effect_del(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	struct punknobs_error_info* error);
+
+// set gain value
+void punknobs_haptics_gain_set(
+	struct punknobs* context,
+	intptr_t id,
+	int gain,
+	struct punknobs_error_info* error);
+
+// set autocenter value
+void punknobs_haptics_autocenter_set(
+	struct punknobs* context,
+	intptr_t id,
+	int autocenter,
+	struct punknobs_error_info* error);
+
+// play effect in specified slot the given number of times
+void punknobs_haptics_effect_play(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	int repeat,
+	struct punknobs_error_info* error);
+
+// stop effect in specified slot
+void punknobs_haptics_effect_stop(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
 	struct punknobs_error_info* error);
 
 // ## device getters
