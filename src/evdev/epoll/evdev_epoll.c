@@ -18,6 +18,35 @@
 
 #include <linux/input.h>
 #include <pthread.h>
+#include <sys/ioctl.h>
+
+// for evdev force feedback feature listing
+#define BITS_TO_LONGS(x) (((x) + 8 * sizeof (unsigned long) - 1) / (8 * sizeof (unsigned long)))
+#define BITS_TO_LONG_BYTES(x) (BITS_TO_LONGS(x) * sizeof (unsigned long))
+
+int lut_features[PUNKNOBS_HAPTICS_FEATURE_COUNT] =
+{
+	[PUNKNOBS_HAPTICS_FEATURE_RUMBLE] = FF_RUMBLE,
+	[PUNKNOBS_HAPTICS_FEATURE_PERIODIC] = FF_PERIODIC,
+	[PUNKNOBS_HAPTICS_FEATURE_CONSTANT] = FF_CONSTANT,
+	[PUNKNOBS_HAPTICS_FEATURE_SPRING] = FF_SPRING,
+	[PUNKNOBS_HAPTICS_FEATURE_FRICTION] = FF_FRICTION,
+	[PUNKNOBS_HAPTICS_FEATURE_DAMPER] = FF_DAMPER,
+	[PUNKNOBS_HAPTICS_FEATURE_INERTIA] = FF_INERTIA,
+	[PUNKNOBS_HAPTICS_FEATURE_RAMP] = FF_RAMP,
+	[PUNKNOBS_HAPTICS_FEATURE_GAIN] = FF_GAIN,
+	[PUNKNOBS_HAPTICS_FEATURE_AUTOCENTER] = FF_AUTOCENTER,
+};
+
+int lut_waveforms[PUNKNOBS_HAPTICS_WAVEFORM_COUNT] =
+{
+	[PUNKNOBS_HAPTICS_WAVEFORM_SQUARE] = FF_SQUARE,
+	[PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE] = FF_TRIANGLE,
+	[PUNKNOBS_HAPTICS_WAVEFORM_SINE] = FF_SINE,
+	[PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP] = FF_SAW_UP,
+	[PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN] = FF_SAW_DOWN,
+	[PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM] = FF_CUSTOM,
+};
 
 // main API
 void punknobs_evdev_epoll_init(
@@ -799,6 +828,101 @@ void punknobs_evdev_epoll_haptics_get_features(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
+	int error_posix = 0;
+
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// find ptr for given device fd
+	struct evdev_epoll_info* input_loop_fds = backend->input_loop_fds->next;
+
+	while (input_loop_fds != NULL)
+	{
+		if (((intptr_t) input_loop_fds) == id)
+		{
+			break;
+		}
+
+		input_loop_fds = input_loop_fds->next;
+	}
+
+	if (input_loop_fds == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return;
+	}
+
+	// get features
+	unsigned long ff_features[BITS_TO_LONGS(FF_CNT)];
+
+	error_posix =
+		ioctl(
+			input_loop_fds->device_fd,
+			EVIOCGBIT(EV_FF, BITS_TO_LONG_BYTES(FF_CNT)),
+			ff_features);
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_FEATURES);
+		return;
+	}
+
+	// allocate features list
+	features->list =
+		malloc(
+			PUNKNOBS_HAPTICS_FEATURE_COUNT
+			* (sizeof (enum punknobs_haptics_feature)));
+
+	if (features->list == NULL)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
+		return;
+	}
+
+	// process features list
+	int ff_value;
+	size_t count = 0;
+
+	for (int i = 0; i < PUNKNOBS_HAPTICS_FEATURE_COUNT; ++i)
+	{
+		ff_value = lut_features[i];
+
+		if ((ff_features[ff_value / 8] & (1 << (ff_value % 8))) != 0)
+		{
+			features->list[count] = i;
+			++count;
+		}
+	}
+
+	features->count = count;
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
 
 	// all good
 	punknobs_error_ok(error);
@@ -811,6 +935,101 @@ void punknobs_evdev_epoll_haptics_get_waveforms(
 	struct punknobs_error_info* error)
 {
 	struct evdev_epoll_backend* backend = context->backend_context;
+	int error_posix = 0;
+
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// find ptr for given device fd
+	struct evdev_epoll_info* input_loop_fds = backend->input_loop_fds->next;
+
+	while (input_loop_fds != NULL)
+	{
+		if (((intptr_t) input_loop_fds) == id)
+		{
+			break;
+		}
+
+		input_loop_fds = input_loop_fds->next;
+	}
+
+	if (input_loop_fds == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return;
+	}
+
+	// get features
+	unsigned long ff_features[BITS_TO_LONGS(FF_CNT)];
+
+	error_posix =
+		ioctl(
+			input_loop_fds->device_fd,
+			EVIOCGBIT(EV_FF, BITS_TO_LONG_BYTES(FF_CNT)),
+			ff_features);
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_WAVEFORMS);
+		return;
+	}
+
+	// allocate features list
+	waveforms->list =
+		malloc(
+			PUNKNOBS_HAPTICS_WAVEFORM_COUNT
+			* (sizeof (enum punknobs_haptics_feature)));
+
+	if (waveforms->list == NULL)
+	{
+		punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
+		return;
+	}
+
+	// process features list
+	int ff_value;
+	size_t count = 0;
+
+	for (int i = 0; i < PUNKNOBS_HAPTICS_WAVEFORM_COUNT; ++i)
+	{
+		ff_value = lut_waveforms[i];
+
+		if ((ff_features[ff_value / 8] & (1 << (ff_value % 8))) != 0)
+		{
+			waveforms->list[count] = i;
+			++count;
+		}
+	}
+
+	waveforms->count = count;
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
 
 	// all good
 	punknobs_error_ok(error);
