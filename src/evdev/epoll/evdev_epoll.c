@@ -898,12 +898,13 @@ void punknobs_evdev_epoll_haptics_get_features(
 	// process features list
 	int ff_value;
 	size_t count = 0;
+	unsigned char* ff_bytes = (unsigned char*) ff_features;
 
 	for (int i = 0; i < PUNKNOBS_HAPTICS_FEATURE_COUNT; ++i)
 	{
 		ff_value = lut_features[i];
 
-		if ((ff_features[ff_value / 8] & (1 << (ff_value % 8))) != 0)
+		if ((ff_bytes[ff_value / 8] & (1 << (ff_value % 8))) != 0)
 		{
 			features->list[count] = i;
 			++count;
@@ -1005,12 +1006,13 @@ void punknobs_evdev_epoll_haptics_get_waveforms(
 	// process features list
 	int ff_value;
 	size_t count = 0;
+	unsigned char* ff_bytes = (unsigned char*) ff_features;
 
 	for (int i = 0; i < PUNKNOBS_HAPTICS_WAVEFORM_COUNT; ++i)
 	{
 		ff_value = lut_waveforms[i];
 
-		if ((ff_features[ff_value / 8] & (1 << (ff_value % 8))) != 0)
+		if ((ff_bytes[ff_value / 8] & (1 << (ff_value % 8))) != 0)
 		{
 			waveforms->list[count] = i;
 			++count;

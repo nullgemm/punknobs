@@ -37,6 +37,30 @@ struct callbacks_data
 	intptr_t* ids;
 };
 
+const char* features_lut[PUNKNOBS_HAPTICS_FEATURE_COUNT] =
+{
+	[PUNKNOBS_HAPTICS_FEATURE_RUMBLE] = "rumble",
+	[PUNKNOBS_HAPTICS_FEATURE_PERIODIC] = "periodic",
+	[PUNKNOBS_HAPTICS_FEATURE_CONSTANT] = "constant",
+	[PUNKNOBS_HAPTICS_FEATURE_SPRING] = "spring",
+	[PUNKNOBS_HAPTICS_FEATURE_FRICTION] = "friction",
+	[PUNKNOBS_HAPTICS_FEATURE_DAMPER] = "damper",
+	[PUNKNOBS_HAPTICS_FEATURE_INERTIA] = "inertia",
+	[PUNKNOBS_HAPTICS_FEATURE_RAMP] = "ramp",
+	[PUNKNOBS_HAPTICS_FEATURE_GAIN] = "gain",
+	[PUNKNOBS_HAPTICS_FEATURE_AUTOCENTER] = "autocenter",
+};
+
+const char* waveforms_lut[PUNKNOBS_HAPTICS_WAVEFORM_COUNT] =
+{
+	[PUNKNOBS_HAPTICS_WAVEFORM_SQUARE] = "square",
+	[PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE] = "triangle",
+	[PUNKNOBS_HAPTICS_WAVEFORM_SINE] = "sine",
+	[PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP] = "sawtooth (up)",
+	[PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN] = "sawtooth (down)",
+	[PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM] = "custom (unsupported)",
+};
+
 #if defined(PUNKNOBS_EXAMPLE_WIN)
 BOOL WINAPI ctrl_handler(DWORD sig)
 {
@@ -173,6 +197,52 @@ static void devices_callback(
 			}
 
 			printf("registered device with punknobs id %p\n", (void*) id);
+
+			// get force feedback info
+			bool periodic = false;
+			struct punknobs_haptics_features features = {0};
+			punknobs_haptics_get_features(punknobs, id, &features, error);
+
+			if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+			{
+				punknobs_error_log(punknobs, error);
+				return;
+			}
+
+			printf("supported force feedback features:\n");
+
+			for (size_t i = 0; i < features.count; ++i)
+			{
+				printf(" - %s\n", features_lut[features.list[i]]);
+
+				if (features.list[i] == PUNKNOBS_HAPTICS_FEATURE_PERIODIC)
+				{
+					periodic = true;
+				}
+			}
+
+			free(features.list);
+
+			if (periodic == true)
+			{
+				struct punknobs_haptics_waveforms waveforms = {0};
+				punknobs_haptics_get_waveforms(punknobs, id, &waveforms, error);
+
+				if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+				{
+					punknobs_error_log(punknobs, error);
+					return;
+				}
+
+				printf("supported periodic waveforms:\n");
+
+				for (size_t i = 0; i < waveforms.count; ++i)
+				{
+					printf(" - %s\n", waveforms_lut[waveforms.list[i]]);
+				}
+
+				free(waveforms.list);
+			}
 
 			// add the device id to the save
 			if (data->ids_count >= data->ids_max)
