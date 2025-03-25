@@ -141,6 +141,15 @@ void punknobs_haptics_get_waveforms(
 	// error always set
 }
 
+int punknobs_haptics_effect_max(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_error_info* error)
+{
+	// error always set
+	return context->backend_config.haptics_effect_max(context, id, error);
+}
+
 int punknobs_haptics_effect_set(
 	struct punknobs* context,
 	intptr_t id,

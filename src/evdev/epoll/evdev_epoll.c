@@ -816,6 +816,18 @@ void punknobs_evdev_epoll_haptics_get_waveforms(
 	punknobs_error_ok(error);
 }
 
+int punknobs_evdev_epoll_haptics_effect_max(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_error_info* error)
+{
+	struct evdev_epoll_backend* backend = context->backend_context;
+
+	// all good
+	punknobs_error_ok(error);
+	return -1;
+}
+
 int punknobs_evdev_epoll_haptics_effect_set(
 	struct punknobs* context,
 	intptr_t id,
@@ -1045,6 +1057,7 @@ void punknobs_prepare_init_evdev_epoll(
 
 	config->haptics_get_features = punknobs_evdev_epoll_haptics_get_features;
 	config->haptics_get_waveforms = punknobs_evdev_epoll_haptics_get_waveforms;
+	config->haptics_effect_max = punknobs_evdev_epoll_haptics_effect_max;
 	config->haptics_effect_set = punknobs_evdev_epoll_haptics_effect_set;
 	config->haptics_effect_del = punknobs_evdev_epoll_haptics_effect_del;
 	config->haptics_gain_set = punknobs_evdev_epoll_haptics_gain_set;

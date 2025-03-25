@@ -250,6 +250,10 @@ struct punknobs_config_backend
 		intptr_t id,
 		struct punknobs_haptics_waveforms* waveforms,
 		struct punknobs_error_info* error);
+	int (*haptics_effect_max)(
+		struct punknobs* context,
+		intptr_t id,
+		struct punknobs_error_info* error);
 	int (*haptics_effect_set)(
 		struct punknobs* context,
 		intptr_t id,
@@ -409,6 +413,12 @@ void punknobs_haptics_get_waveforms(
 	struct punknobs* context,
 	intptr_t id,
 	struct punknobs_haptics_waveforms* waveforms,
+	struct punknobs_error_info* error);
+
+// get haptics effect slot count for the target device
+int punknobs_haptics_effect_max(
+	struct punknobs* context,
+	intptr_t id,
 	struct punknobs_error_info* error);
 
 // set haptics effect in specified slot or adds it to a free slot
