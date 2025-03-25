@@ -239,6 +239,48 @@ struct punknobs_config_backend
 	void (*reenumerate)(
 		struct punknobs* context,
 		struct punknobs_error_info* error);
+	// haptics management
+	void (*haptics_get_features)(
+		struct punknobs* context,
+		intptr_t id,
+		struct punknobs_haptics_features* features,
+		struct punknobs_error_info* error);
+	void (*haptics_get_waveforms)(
+		struct punknobs* context,
+		intptr_t id,
+		struct punknobs_haptics_waveforms* waveforms,
+		struct punknobs_error_info* error);
+	int (*haptics_effect_set)(
+		struct punknobs* context,
+		intptr_t id,
+		struct punknobs_haptics_effect* effect,
+		struct punknobs_error_info* error);
+	void (*haptics_effect_del)(
+		struct punknobs* context,
+		intptr_t id,
+		int slot,
+		struct punknobs_error_info* error);
+	void (*haptics_gain_set)(
+		struct punknobs* context,
+		intptr_t id,
+		int gain,
+		struct punknobs_error_info* error);
+	void (*haptics_autocenter_set)(
+		struct punknobs* context,
+		intptr_t id,
+		int autocenter,
+		struct punknobs_error_info* error);
+	void (*haptics_effect_play)(
+		struct punknobs* context,
+		intptr_t id,
+		int slot,
+		int repeat,
+		struct punknobs_error_info* error);
+	void (*haptics_effect_stop)(
+		struct punknobs* context,
+		intptr_t id,
+		int slot,
+		struct punknobs_error_info* error);
 	// device getters
 	intptr_t (*device_get_punknobs_id)(
 		struct punknobs* context,

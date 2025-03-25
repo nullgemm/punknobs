@@ -791,6 +791,105 @@ void punknobs_evdev_epoll_reenumerate(
 	punknobs_error_ok(error);
 }
 
+// haptics management
+void punknobs_evdev_epoll_haptics_get_features(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_features* features,
+	struct punknobs_error_info* error)
+{
+	struct evdev_epoll_backend* backend = context->backend_context;
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_evdev_epoll_haptics_get_waveforms(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_waveforms* waveforms,
+	struct punknobs_error_info* error)
+{
+	struct evdev_epoll_backend* backend = context->backend_context;
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+int punknobs_evdev_epoll_haptics_effect_set(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_effect* effect,
+	struct punknobs_error_info* error)
+{
+	struct evdev_epoll_backend* backend = context->backend_context;
+
+	// all good
+	punknobs_error_ok(error);
+	return -1;
+}
+
+void punknobs_evdev_epoll_haptics_effect_del(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	struct punknobs_error_info* error)
+{
+	struct evdev_epoll_backend* backend = context->backend_context;
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_evdev_epoll_haptics_gain_set(
+	struct punknobs* context,
+	intptr_t id,
+	int gain,
+	struct punknobs_error_info* error)
+{
+	struct evdev_epoll_backend* backend = context->backend_context;
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_evdev_epoll_haptics_autocenter_set(
+	struct punknobs* context,
+	intptr_t id,
+	int autocenter,
+	struct punknobs_error_info* error)
+{
+	struct evdev_epoll_backend* backend = context->backend_context;
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_evdev_epoll_haptics_effect_play(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	int repeat,
+	struct punknobs_error_info* error)
+{
+	struct evdev_epoll_backend* backend = context->backend_context;
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_evdev_epoll_haptics_effect_stop(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	struct punknobs_error_info* error)
+{
+	struct evdev_epoll_backend* backend = context->backend_context;
+
+	// all good
+	punknobs_error_ok(error);
+}
+
 // device getters
 intptr_t punknobs_evdev_epoll_device_get_punknobs_id(
 	struct punknobs* context,
@@ -943,6 +1042,15 @@ void punknobs_prepare_init_evdev_epoll(
 	config->register_add = punknobs_evdev_epoll_register_add;
 	config->register_del = punknobs_evdev_epoll_register_del;
 	config->reenumerate = punknobs_evdev_epoll_reenumerate;
+
+	config->haptics_get_features = punknobs_evdev_epoll_haptics_get_features;
+	config->haptics_get_waveforms = punknobs_evdev_epoll_haptics_get_waveforms;
+	config->haptics_effect_set = punknobs_evdev_epoll_haptics_effect_set;
+	config->haptics_effect_del = punknobs_evdev_epoll_haptics_effect_del;
+	config->haptics_gain_set = punknobs_evdev_epoll_haptics_gain_set;
+	config->haptics_autocenter_set = punknobs_evdev_epoll_haptics_autocenter_set;
+	config->haptics_effect_play = punknobs_evdev_epoll_haptics_effect_play;
+	config->haptics_effect_stop = punknobs_evdev_epoll_haptics_effect_stop;
 
 	config->device_get_punknobs_id = punknobs_evdev_epoll_device_get_punknobs_id;
 	config->device_get_name = punknobs_evdev_epoll_device_get_name;

@@ -118,6 +118,95 @@ void punknobs_reenumerate(
 	// error always set
 }
 
+// haptics management
+void punknobs_haptics_get_features(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_features* features,
+	struct punknobs_error_info* error)
+{
+	context->backend_config.haptics_get_features(context, id, features, error);
+
+	// error always set
+}
+
+void punknobs_haptics_get_waveforms(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_waveforms* waveforms,
+	struct punknobs_error_info* error)
+{
+	context->backend_config.haptics_get_waveforms(context, id, waveforms, error);
+
+	// error always set
+}
+
+int punknobs_haptics_effect_set(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_effect* effect,
+	struct punknobs_error_info* error)
+{
+	// error always set
+	return context->backend_config.haptics_effect_set(context, id, effect, error);
+}
+
+void punknobs_haptics_effect_del(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	struct punknobs_error_info* error)
+{
+	context->backend_config.haptics_effect_del(context, id, slot, error);
+
+	// error always set
+}
+
+void punknobs_haptics_gain_set(
+	struct punknobs* context,
+	intptr_t id,
+	int gain,
+	struct punknobs_error_info* error)
+{
+	context->backend_config.haptics_gain_set(context, id, gain, error);
+
+	// error always set
+}
+
+void punknobs_haptics_autocenter_set(
+	struct punknobs* context,
+	intptr_t id,
+	int autocenter,
+	struct punknobs_error_info* error)
+{
+	context->backend_config.haptics_autocenter_set(context, id, autocenter, error);
+
+	// error always set
+}
+
+void punknobs_haptics_effect_play(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	int repeat,
+	struct punknobs_error_info* error)
+{
+	context->backend_config.haptics_effect_play(context, id, slot, repeat, error);
+
+	// error always set
+}
+
+void punknobs_haptics_effect_stop(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	struct punknobs_error_info* error)
+{
+	context->backend_config.haptics_effect_stop(context, id, slot, error);
+
+	// error always set
+}
+
 intptr_t punknobs_device_get_punknobs_id(
 	struct punknobs* context,
 	void* device_info,
