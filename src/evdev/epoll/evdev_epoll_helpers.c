@@ -110,7 +110,7 @@ static void run_device_callback(
 	if (plugged == true)
 	{
 		// open event device descriptor
-		int fd_tmp = open(full_path, O_RDONLY | O_NONBLOCK);
+		int fd_tmp = open(full_path, O_RDWR | O_NONBLOCK);
 
 		if (fd_tmp == -1)
 		{
@@ -120,6 +120,8 @@ static void run_device_callback(
 				PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_OPEN_EVENTFD);
 			return;
 		}
+
+		// TODO support read-only
 
 		// create libevdev context
 		//

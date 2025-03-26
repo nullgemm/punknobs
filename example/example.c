@@ -266,18 +266,18 @@ static void devices_callback(
 					.direction = 1,
 					.trigger =
 					{
-						.button = -1,
+						.button = 0,
 						.interval = 0,
 					},
 					.replay =
 					{
-						.length = 10,
+						.length = 0,
 						.delay = 0,
 					},
 					.config.rumble =
 					{
-						.strong_magnitude = 50,
-						.weak_magnitude = 50,
+						.strong_magnitude = 0x4000,
+						.weak_magnitude = 0xFFFF,
 					},
 				};
 
@@ -305,27 +305,27 @@ static void devices_callback(
 					.direction = 1,
 					.trigger =
 					{
-						.button = -1,
+						.button = 0,
 						.interval = 0,
 					},
 					.replay =
 					{
-						.length = 10,
+						.length = 5000,
 						.delay = 0,
 					},
 					.config.periodic =
 					{
-						.waveform = PUNKNOBS_HAPTICS_WAVEFORM_SQUARE,
-						.period = 6,
-						.magnitude = 50,
+						.waveform = PUNKNOBS_HAPTICS_WAVEFORM_SINE,
+						.period = 50,
+						.magnitude = 0x7FFF,
 						.offset = 0,
 						.phase = 0,
 						.envelope =
 						{
-							.attack_length = 1,
-							.attack_level = 1,
-							.fade_length = 1,
-							.fade_level = 1,
+							.attack_length = 2000,
+							.attack_level = 0,
+							.fade_length = 2000,
+							.fade_level = 0,
 						},
 					},
 				};

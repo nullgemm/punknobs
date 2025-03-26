@@ -604,7 +604,7 @@ void punknobs_evdev_epoll_register_add(
 	struct evdev_epoll_device_info* info = &(device->info);
 
 	// open event device descriptor
-	int fd = open(info->path, O_RDONLY | O_NONBLOCK);
+	int fd = open(info->path, O_RDWR | O_NONBLOCK);
 
 	if (fd == -1)
 	{
@@ -615,6 +615,8 @@ void punknobs_evdev_epoll_register_add(
 			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_OPEN_EVENTFD);
 		return;
 	}
+
+	// TODO support read-only
 
 	// create libevdev context
 	struct libevdev* libevdev_ctx = NULL;
