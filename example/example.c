@@ -244,6 +244,106 @@ static void devices_callback(
 				free(waveforms.list);
 			}
 
+			// get effects maximum
+			int effects_max = punknobs_haptics_effect_max(punknobs, id, error);
+
+			if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+			{
+				punknobs_error_log(punknobs, error);
+				return;
+			}
+
+			printf("maximum supported effects: %d\n", effects_max);
+
+			// set rumble effect
+			if (effects_max > 0)
+			{
+				// save effects
+				struct punknobs_haptics_effect effect_basic =
+				{
+					.type = PUNKNOBS_HAPTICS_FEATURE_RUMBLE,
+					.id = 0, // override this effect if set
+					.direction = 1,
+					.trigger =
+					{
+						.button = -1,
+						.interval = 0,
+					},
+					.replay =
+					{
+						.length = 10,
+						.delay = 0,
+					},
+					.config.rumble =
+					{
+						.strong_magnitude = 50,
+						.weak_magnitude = 50,
+					},
+				};
+
+				// ignore returned effect number since we are overriding an effect
+				punknobs_haptics_effect_set(
+					punknobs,
+					id,
+					&effect_basic,
+					error);
+
+				if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+				{
+					punknobs_error_log(punknobs, error);
+					return;
+				}
+			}
+
+			if ((effects_max > 1) && (periodic == true))
+			{
+				// save effects
+				struct punknobs_haptics_effect effect_fancy =
+				{
+					.type = PUNKNOBS_HAPTICS_FEATURE_PERIODIC,
+					.id = 1, // override this effect if set
+					.direction = 1,
+					.trigger =
+					{
+						.button = -1,
+						.interval = 0,
+					},
+					.replay =
+					{
+						.length = 10,
+						.delay = 0,
+					},
+					.config.periodic =
+					{
+						.waveform = PUNKNOBS_HAPTICS_WAVEFORM_SQUARE,
+						.period = 6,
+						.magnitude = 50,
+						.offset = 0,
+						.phase = 0,
+						.envelope =
+						{
+							.attack_length = 1,
+							.attack_level = 1,
+							.fade_length = 1,
+							.fade_level = 1,
+						},
+					},
+				};
+
+				// ignore returned effect number since we are overriding an effect
+				punknobs_haptics_effect_set(
+					punknobs,
+					id,
+					&effect_fancy,
+					error);
+
+				if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+				{
+					punknobs_error_log(punknobs, error);
+					return;
+				}
+			}
+
 			// add the device id to the save
 			if (data->ids_count >= data->ids_max)
 			{
@@ -380,6 +480,53 @@ static void inputs_callback(
 	{
 		punknobs_error_log(punknobs, error);
 		return;
+	}
+
+	// vibrattttte
+	switch (code)
+	{
+		case 304:
+		{
+			if (value != 0)
+			{
+				punknobs_haptics_effect_play(punknobs, id, 0, 1, error);
+			}
+			else
+			{
+				punknobs_haptics_effect_stop(punknobs, id, 0, error);
+			}
+
+			if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+			{
+				punknobs_error_log(punknobs, error);
+				return;
+			}
+
+			break;
+		}
+		case 305:
+		{
+			if (value != 0)
+			{
+				punknobs_haptics_effect_play(punknobs, id, 1, 1, error);
+			}
+			else
+			{
+				punknobs_haptics_effect_stop(punknobs, id, 1, error);
+			}
+
+			if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
+			{
+				punknobs_error_log(punknobs, error);
+				return;
+			}
+
+			break;
+		}
+		default:
+		{
+			break;
+		}
 	}
 
 // log input

@@ -95,6 +95,26 @@ void punknobs_error_init(
 		"could not get device hardware name";
 	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_LIBEVDEV_NEXT_EVENT] =
 		"could not get next evdev event";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_FEATURES] =
+		"could not get force feedback features";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_WAVEFORMS] =
+		"could not get periodic force feedback waveforms";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_EFFECTS_MAX] =
+		"could not get force feedback maximum effects count";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_EFFECTS_DEL] =
+		"could not delete force feedback effect";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_GAIN_SET] =
+		"could not set force feedback gain";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_AUTOCENTER_SET] =
+		"could not set force feedback autocenter";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_PLAY] =
+		"could not play force feedback effect";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_STOP] =
+		"could not stop force feedback effect";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_TYPE] =
+		"invalid force feedback effect type";
+	log[PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_SET] =
+		"could not set force feedback effect";
 	// win
 	log[PUNKNOBS_ERROR_BACKEND_WIN_MODULE_GET] =
 		"could not get application module";
