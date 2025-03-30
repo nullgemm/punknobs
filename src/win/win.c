@@ -18,6 +18,149 @@
 #include <windows.h>
 #include <xinput.h>
 
+BOOL effects_callback(LPCDIEffectInfo pdei, LPVOID pvRef)
+{
+	struct punknobs_haptics_features* features =
+		(struct punknobs_haptics_features*) pvRef;
+
+	// there was an issue, and DirectInput reported certain features twice or more...
+	if (features->count == PUNKNOBS_HAPTICS_FEATURE_COUNT)
+	{
+		return FALSE;
+	}
+
+	switch (pdei->dwEffType)
+	{
+		case DIEFT_PERIODIC:
+		{
+			size_t i = 0;
+
+			// search for rumble/periodic in already reported features
+			while (i < features->count)
+			{
+				if ((features->list[i] == PUNKNOBS_HAPTICS_FEATURE_RUMBLE)
+				|| (features->list[i] == PUNKNOBS_HAPTICS_FEATURE_PERIODIC))
+				{
+					break;
+				}
+
+				++i;
+			}
+
+			// not found, let's add it (we must ignore extra requests for each waveform type)
+			if (i == features->count)
+			{
+				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_RUMBLE;
+				features->count += 1;
+				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_PERIODIC;
+				features->count += 1;
+			}
+
+			break;
+		}
+		case DIEFT_CONSTANTFORCE:
+		{
+			if (IsEqualGUID(&(pdei->guid), &GUID_ConstantForce) == TRUE)
+			{
+				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_CONSTANT;
+				features->count += 1;
+			}
+
+			break;
+		}
+		case DIEFT_CONDITION:
+		{
+			if (IsEqualGUID(&(pdei->guid), &GUID_Spring) == TRUE)
+			{
+				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_SPRING;
+				features->count += 1;
+			}
+
+			if (IsEqualGUID(&(pdei->guid), &GUID_Friction) == TRUE)
+			{
+				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_FRICTION;
+				features->count += 1;
+			}
+
+			if (IsEqualGUID(&(pdei->guid), &GUID_Damper) == TRUE)
+			{
+				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_DAMPER;
+				features->count += 1;
+			}
+
+			if (IsEqualGUID(&(pdei->guid), &GUID_Inertia) == TRUE)
+			{
+				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_INERTIA;
+				features->count += 1;
+			}
+
+			break;
+		}
+		case DIEFT_RAMPFORCE:
+		{
+			if (IsEqualGUID(&(pdei->guid), &GUID_RampForce) == TRUE)
+			{
+				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_RAMP;
+				features->count += 1;
+			}
+
+			break;
+		}
+	}
+
+	return TRUE;
+}
+
+BOOL waveforms_callback(LPCDIEffectInfo pdei, LPVOID pvRef)
+{
+	struct punknobs_haptics_features* features =
+		(struct punknobs_haptics_features*) pvRef;
+
+	if (IsEqualGUID(&(pdei->guid), &GUID_Square) == TRUE)
+	{
+		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_SQUARE;
+		features->count += 1;
+		return TRUE;
+	}
+
+	if (IsEqualGUID(&(pdei->guid), &GUID_Triangle) == TRUE)
+	{
+		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE;
+		features->count += 1;
+		return TRUE;
+	}
+
+	if (IsEqualGUID(&(pdei->guid), &GUID_Sine) == TRUE)
+	{
+		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_SINE;
+		features->count += 1;
+		return TRUE;
+	}
+
+	if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothUp) == TRUE)
+	{
+		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP;
+		features->count += 1;
+		return TRUE;
+	}
+
+	if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothDown) == TRUE)
+	{
+		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN;
+		features->count += 1;
+		return TRUE;
+	}
+
+	if (IsEqualGUID(&(pdei->guid), &GUID_CustomForce) == TRUE)
+	{
+		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM;
+		features->count += 1;
+		return TRUE;
+	}
+
+	return TRUE;
+}
+
 // main API
 void punknobs_win_init(
 	struct punknobs* context,
@@ -786,6 +929,937 @@ void punknobs_win_reenumerate(
 	punknobs_error_ok(error);
 }
 
+// haptics management
+void punknobs_win_haptics_get_features(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_features* features,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+
+	if (enum_lock != WAIT_OBJECT_0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+
+	while (dinput_node != NULL)
+	{
+		if (id == ((intptr_t) dinput_node))
+		{
+			break;
+		}
+
+		dinput_node = dinput_node->next;
+	}
+
+	if (dinput_node != NULL)
+	{
+		// allocate features list
+		features->list =
+			malloc(
+				PUNKNOBS_HAPTICS_FEATURE_COUNT
+				* (sizeof (enum punknobs_haptics_feature)));
+
+		if (features->list == NULL)
+		{
+			punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
+		// detect main features
+		HRESULT result =
+			dinput_node->device->lpVtbl->EnumEffects(
+				dinput_node->device,
+				effects_callback,
+				features,
+				DIEFT_ALL);
+
+		if (result != DI_OK)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_ENUM_EFFECTS);
+			return;
+		}
+
+		// register features we can't make sure are available
+		features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_GAIN;
+		features->count += 1;
+		features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_AUTOCENTER;
+		features->count += 1;
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// all good
+		punknobs_error_ok(error);
+		return;
+	}
+
+	// search for XInput devices
+	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+
+	while (xinput_node != NULL)
+	{
+		if (id == ((intptr_t) xinput_node))
+		{
+			break;
+		}
+
+		xinput_node = xinput_node->next;
+	}
+
+	if (xinput_node != NULL)
+	{
+		// allocate features list
+		features->list = malloc(sizeof (enum punknobs_haptics_feature));
+
+		if (features->list == NULL)
+		{
+			punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
+		features->list[0] = PUNKNOBS_HAPTICS_FEATURE_RUMBLE;
+		features->count = 1;
+	}
+
+	// ignore invalid register requests
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_win_haptics_get_waveforms(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_waveforms* waveforms,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+
+	if (enum_lock != WAIT_OBJECT_0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+
+	while (dinput_node != NULL)
+	{
+		if (id == ((intptr_t) dinput_node))
+		{
+			break;
+		}
+
+		dinput_node = dinput_node->next;
+	}
+
+	if (dinput_node != NULL)
+	{
+		// allocate waveforms list
+		waveforms->list =
+			malloc(
+				PUNKNOBS_HAPTICS_WAVEFORM_COUNT
+				* (sizeof (enum punknobs_haptics_waveform)));
+
+		if (waveforms->list == NULL)
+		{
+			punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
+		// detect main waveforms
+		HRESULT result =
+			dinput_node->device->lpVtbl->EnumEffects(
+				dinput_node->device,
+				waveforms_callback,
+				waveforms,
+				DIEFT_ALL);
+
+		if (result != DI_OK)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_ENUM_EFFECTS);
+			return;
+		}
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// all good
+		punknobs_error_ok(error);
+		return;
+	}
+
+	// search for XInput devices
+	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+
+	while (xinput_node != NULL)
+	{
+		if (id == ((intptr_t) xinput_node))
+		{
+			break;
+		}
+
+		xinput_node = xinput_node->next;
+	}
+
+	if (xinput_node != NULL)
+	{
+		waveforms->list = NULL;
+		waveforms->count = 0;
+	}
+
+	// ignore invalid register requests
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+int punknobs_win_haptics_effect_max(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	int max = 0;
+
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+
+	if (enum_lock != WAIT_OBJECT_0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+
+	while (dinput_node != NULL)
+	{
+		if (id == ((intptr_t) dinput_node))
+		{
+			break;
+		}
+
+		dinput_node = dinput_node->next;
+	}
+
+	if (dinput_node != NULL)
+	{
+		// lower limit for DirectInput? https://patents.google.com/patent/US6710764B1/en
+		max = 12;
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// all good
+		punknobs_error_ok(error);
+		return max;
+	}
+
+	// search for XInput devices
+	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+
+	while (xinput_node != NULL)
+	{
+		if (id == ((intptr_t) xinput_node))
+		{
+			break;
+		}
+
+		xinput_node = xinput_node->next;
+	}
+
+	if (xinput_node != NULL)
+	{
+		// XInput is shit
+		max = 0;
+	}
+
+	// ignore invalid register requests
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
+	punknobs_error_ok(error);
+	return max;
+}
+
+int punknobs_win_haptics_effect_set(
+	struct punknobs* context,
+	intptr_t id,
+	struct punknobs_haptics_effect* effect,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	int error_posix = 0;
+
+	// create evdev effect 
+	struct ff_effect ffe =
+	{
+		.type = lut_features[effect->type],
+		.id = -1,
+		.direction = effect->direction,
+		.trigger =
+		{
+			.button = effect->trigger.button,
+			.interval = effect->trigger.interval,
+		},
+		.replay =
+		{
+			.length = effect->replay.length,
+			.delay = effect->replay.delay,
+		},
+	};
+
+	switch (effect->type)
+	{
+		case PUNKNOBS_HAPTICS_FEATURE_CONSTANT:
+		{
+			ffe.u.constant.level = effect->config.constant.level;
+
+			ffe.u.constant.envelope.attack_length =
+				effect->config.constant.envelope.attack_length;
+			ffe.u.constant.envelope.attack_level =
+				effect->config.constant.envelope.attack_level;
+			ffe.u.constant.envelope.fade_length =
+				effect->config.constant.envelope.fade_length;
+			ffe.u.constant.envelope.fade_level =
+				effect->config.constant.envelope.fade_level;
+			break;
+		}
+		case PUNKNOBS_HAPTICS_FEATURE_RAMP:
+		{
+			ffe.u.ramp.start_level = effect->config.ramp.start_level;
+			ffe.u.ramp.end_level = effect->config.ramp.end_level;
+
+			ffe.u.ramp.envelope.attack_length =
+				effect->config.ramp.envelope.attack_length;
+			ffe.u.ramp.envelope.attack_level =
+				effect->config.ramp.envelope.attack_level;
+			ffe.u.ramp.envelope.fade_length =
+				effect->config.ramp.envelope.fade_length;
+			ffe.u.ramp.envelope.fade_level =
+				effect->config.ramp.envelope.fade_level;
+			break;
+		}
+		case PUNKNOBS_HAPTICS_FEATURE_PERIODIC:
+		{
+			ffe.u.periodic.waveform = lut_waveforms[effect->config.periodic.waveform];
+			ffe.u.periodic.period = effect->config.periodic.period;
+			ffe.u.periodic.magnitude = effect->config.periodic.magnitude;
+			ffe.u.periodic.offset = effect->config.periodic.offset;
+			ffe.u.periodic.phase = effect->config.periodic.phase;
+
+			ffe.u.periodic.custom_len = 0;
+			ffe.u.periodic.custom_data = NULL;
+
+			ffe.u.periodic.envelope.attack_length =
+				effect->config.periodic.envelope.attack_length;
+			ffe.u.periodic.envelope.attack_level =
+				effect->config.periodic.envelope.attack_level;
+			ffe.u.periodic.envelope.fade_length =
+				effect->config.periodic.envelope.fade_length;
+			ffe.u.periodic.envelope.fade_level =
+				effect->config.periodic.envelope.fade_level;
+			break;
+		}
+		case PUNKNOBS_HAPTICS_FEATURE_SPRING:
+		case PUNKNOBS_HAPTICS_FEATURE_FRICTION:
+		case PUNKNOBS_HAPTICS_FEATURE_DAMPER: // ???
+		case PUNKNOBS_HAPTICS_FEATURE_INERTIA: // ???
+		{
+			ffe.u.condition[0].right_saturation = effect->config.condition[0].right_saturation;
+			ffe.u.condition[0].left_saturation = effect->config.condition[0].left_saturation;
+			ffe.u.condition[0].right_coeff = effect->config.condition[0].right_coeff;
+			ffe.u.condition[0].left_coeff = effect->config.condition[0].left_coeff;
+			ffe.u.condition[0].deadband = effect->config.condition[0].deadband;
+			ffe.u.condition[0].center = effect->config.condition[0].center;
+
+			ffe.u.condition[1].right_saturation = effect->config.condition[1].right_saturation;
+			ffe.u.condition[1].left_saturation = effect->config.condition[1].left_saturation;
+			ffe.u.condition[1].right_coeff = effect->config.condition[1].right_coeff;
+			ffe.u.condition[1].left_coeff = effect->config.condition[1].left_coeff;
+			ffe.u.condition[1].deadband = effect->config.condition[1].deadband;
+			ffe.u.condition[1].center = effect->config.condition[1].center;
+			break;
+		}
+		case PUNKNOBS_HAPTICS_FEATURE_RUMBLE:
+		{
+			ffe.u.rumble.strong_magnitude = effect->config.rumble.strong_magnitude;
+			ffe.u.rumble.weak_magnitude = effect->config.rumble.weak_magnitude;
+			break;
+		}
+		default:
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_TYPE);
+			return -1;
+		}
+	}
+
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return -1;
+	}
+
+	// find ptr for given device fd
+	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+
+	while (input_loop_fds != NULL)
+	{
+		if (((intptr_t) input_loop_fds) == id)
+		{
+			break;
+		}
+
+		input_loop_fds = input_loop_fds->next;
+	}
+
+	if (input_loop_fds == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return -1;
+	}
+
+	// set effect
+	error_posix =
+		ioctl(
+			input_loop_fds->device_fd,
+			EVIOCSFF,
+			&ffe);
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_SET);
+		return -1;
+	}
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return -1;
+	}
+
+	// all good
+	punknobs_error_ok(error);
+	return ffe.id;
+}
+
+void punknobs_win_haptics_effect_del(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	int error_posix = 0;
+
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// find ptr for given device fd
+	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+
+	while (input_loop_fds != NULL)
+	{
+		if (((intptr_t) input_loop_fds) == id)
+		{
+			break;
+		}
+
+		input_loop_fds = input_loop_fds->next;
+	}
+
+	if (input_loop_fds == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return;
+	}
+
+	// get max
+	error_posix =
+		ioctl(
+			input_loop_fds->device_fd,
+			EVIOCRMFF,
+			slot);
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_EFFECTS_DEL);
+		return;
+	}
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_win_haptics_gain_set(
+	struct punknobs* context,
+	intptr_t id,
+	int gain,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	int error_posix = 0;
+
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// find ptr for given device fd
+	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+
+	while (input_loop_fds != NULL)
+	{
+		if (((intptr_t) input_loop_fds) == id)
+		{
+			break;
+		}
+
+		input_loop_fds = input_loop_fds->next;
+	}
+
+	if (input_loop_fds == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return;
+	}
+
+	// set gain
+	struct input_event event =
+	{
+		.type = EV_FF,
+		.code = FF_GAIN,
+		.value = 0xFFFFUL * gain / 100,
+	};
+
+	error_posix =
+		write(
+			input_loop_fds->device_fd,
+			(void*) &event,
+			sizeof (struct input_event));
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_GAIN_SET);
+		return;
+	}
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_win_haptics_autocenter_set(
+	struct punknobs* context,
+	intptr_t id,
+	int autocenter,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	int error_posix = 0;
+
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// find ptr for given device fd
+	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+
+	while (input_loop_fds != NULL)
+	{
+		if (((intptr_t) input_loop_fds) == id)
+		{
+			break;
+		}
+
+		input_loop_fds = input_loop_fds->next;
+	}
+
+	if (input_loop_fds == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return;
+	}
+
+	// set gain
+	struct input_event event =
+	{
+		.type = EV_FF,
+		.code = FF_AUTOCENTER,
+		.value = 0xFFFFUL * autocenter / 100,
+	};
+
+	error_posix =
+		write(
+			input_loop_fds->device_fd,
+			(void*) &event,
+			sizeof (struct input_event));
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_AUTOCENTER_SET);
+		return;
+	}
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_win_haptics_effect_play(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	int repeat,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	int error_posix = 0;
+
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// find ptr for given device fd
+	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+
+	while (input_loop_fds != NULL)
+	{
+		if (((intptr_t) input_loop_fds) == id)
+		{
+			break;
+		}
+
+		input_loop_fds = input_loop_fds->next;
+	}
+
+	if (input_loop_fds == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return;
+	}
+
+	// set gain
+	struct input_event event =
+	{
+		.type = EV_FF,
+		.code = slot,
+		.value = repeat,
+	};
+
+	error_posix =
+		write(
+			input_loop_fds->device_fd,
+			(void*) &event,
+			sizeof (struct input_event));
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_PLAY);
+		return;
+	}
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
+	punknobs_error_ok(error);
+}
+
+void punknobs_win_haptics_effect_stop(
+	struct punknobs* context,
+	intptr_t id,
+	int slot,
+	struct punknobs_error_info* error)
+{
+	struct win_backend* backend = context->backend_context;
+	int error_posix = 0;
+
+	// lock main mutex
+	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+		return;
+	}
+
+	// find ptr for given device fd
+	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+
+	while (input_loop_fds != NULL)
+	{
+		if (((intptr_t) input_loop_fds) == id)
+		{
+			break;
+		}
+
+		input_loop_fds = input_loop_fds->next;
+	}
+
+	if (input_loop_fds == NULL)
+	{
+		pthread_mutex_unlock(&(backend->mutex_main));
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return;
+	}
+
+	// set gain
+	struct input_event event =
+	{
+		.type = EV_FF,
+		.code = slot,
+		.value = 0,
+	};
+
+	error_posix =
+		write(
+			input_loop_fds->device_fd,
+			(void*) &event,
+			sizeof (struct input_event));
+
+	if (error_posix == -1)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_STOP);
+		return;
+	}
+
+	// unlock main mutex
+	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+
+	if (error_posix != 0)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+		return;
+	}
+
+	// all good
+	punknobs_error_ok(error);
+}
+
 // device getters
 intptr_t punknobs_win_device_get_punknobs_id(
 	struct punknobs* context,
@@ -994,6 +2068,16 @@ void punknobs_prepare_init_win(
 	config->register_add = punknobs_win_register_add;
 	config->register_del = punknobs_win_register_del;
 	config->reenumerate = punknobs_win_reenumerate;
+
+	config->haptics_get_features = punknobs_win_haptics_get_features;
+	config->haptics_get_waveforms = punknobs_win_haptics_get_waveforms;
+	config->haptics_effect_max = punknobs_win_haptics_effect_max;
+	config->haptics_effect_set = punknobs_win_haptics_effect_set;
+	config->haptics_effect_del = punknobs_win_haptics_effect_del;
+	config->haptics_gain_set = punknobs_win_haptics_gain_set;
+	config->haptics_autocenter_set = punknobs_win_haptics_autocenter_set;
+	config->haptics_effect_play = punknobs_win_haptics_effect_play;
+	config->haptics_effect_stop = punknobs_win_haptics_effect_stop;
 
 	config->device_get_punknobs_id = punknobs_win_device_get_punknobs_id;
 	config->device_get_name = punknobs_win_device_get_name;
