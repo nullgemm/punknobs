@@ -11,6 +11,8 @@
 #include <xinput.h>
 #include <windows.h>
 
+#define PUNKNOBS_DIRECTINPUT_MAX_SLOT 12
+
 union win_device_enum_node
 {
 	struct win_device_enum_node_dinput* dinput;
@@ -47,6 +49,7 @@ struct win_device_enum_node_xinput
 	DWORD id;
 	struct win_device_reg_node_xinput* reg_entry;
 	struct win_device_enum_node_xinput* next;
+	XINPUT_VIBRATION effects[PUNKNOBS_DIRECTINPUT_MAX_SLOT];
 	struct win_device_info info;
 };
 
@@ -56,6 +59,7 @@ struct win_device_enum_node_dinput
 	IDirectInputDevice8* device;
 	struct win_device_reg_node_dinput* reg_entry;
 	struct win_device_enum_node_dinput* next;
+	DIRECTINPUTEFFECT effects[PUNKNOBS_DIRECTINPUT_MAX_SLOT];
 	struct win_device_info info;
 	bool xinput_compatible;
 };

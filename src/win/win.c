@@ -1121,7 +1121,7 @@ void punknobs_win_haptics_get_waveforms(
 			punknobs_error_throw(
 				context,
 				error,
-				PUNKNOBS_ERROR_BACKEND_WIN_ENUM_EFFECTS);
+				PUNKNOBS_ERROR_BACKEND_WIN_ENUM_WAVEFORMS);
 			return;
 		}
 
@@ -1213,7 +1213,7 @@ int punknobs_win_haptics_effect_max(
 	if (dinput_node != NULL)
 	{
 		// lower limit for DirectInput? https://patents.google.com/patent/US6710764B1/en
-		max = 12;
+		max = PUNKNOBS_DIRECTINPUT_MAX_SLOT;
 
 		// unlock mutex
 		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
@@ -1247,8 +1247,8 @@ int punknobs_win_haptics_effect_max(
 
 	if (xinput_node != NULL)
 	{
-		// XInput is shit
-		max = 0;
+		// XInput is shit so we emulate slots
+		max = PUNKNOBS_DIRECTINPUT_MAX_SLOT;
 	}
 
 	// ignore invalid register requests
@@ -1534,75 +1534,72 @@ void punknobs_win_haptics_gain_set(
 	struct punknobs_error_info* error)
 {
 	struct win_backend* backend = context->backend_context;
-	int error_posix = 0;
+	int max = 0;
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
 
-	if (error_posix != 0)
+	if (enum_lock != WAIT_OBJECT_0)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
 		return;
 	}
 
-	// find ptr for given device fd
-	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
 
-	while (input_loop_fds != NULL)
+	while (dinput_node != NULL)
 	{
-		if (((intptr_t) input_loop_fds) == id)
+		if (id == ((intptr_t) dinput_node))
 		{
 			break;
 		}
 
-		input_loop_fds = input_loop_fds->next;
+		dinput_node = dinput_node->next;
 	}
 
-	if (input_loop_fds == NULL)
+	if (dinput_node != NULL)
 	{
-		pthread_mutex_unlock(&(backend->mutex_main));
+		DIPROPDWORD property =
+		{
+			.diph =
+			{
+				.dwSize = sizeof (DIPROPDWORD),
+				.dwHeaderSize = sizeof (DIPROPHEADER),
+				.dwObj = property,
+				.dwHow = DIPH_DEVICE,
+			},
+			.dwData = gain * 100,
+		};
+
+		HRESULT result =
+			dinput_node->device->lpVtbl->SetProperty(
+				dinput_node->device,
+				&DIPROP_FFGAIN,
+				&property);
+
+		if (result != DI_OK)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_GAIN_SET);
+			return;
+		}
+	}
+
+	// ignore XInput
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
+	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_DOMAIN);
-		return;
-	}
-
-	// set gain
-	struct input_event event =
-	{
-		.type = EV_FF,
-		.code = FF_GAIN,
-		.value = 0xFFFFUL * gain / 100,
-	};
-
-	error_posix =
-		write(
-			input_loop_fds->device_fd,
-			(void*) &event,
-			sizeof (struct input_event));
-
-	if (error_posix == -1)
-	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_GAIN_SET);
-		return;
-	}
-
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
-
-	if (error_posix != 0)
-	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
 		return;
 	}
 
@@ -1617,75 +1614,72 @@ void punknobs_win_haptics_autocenter_set(
 	struct punknobs_error_info* error)
 {
 	struct win_backend* backend = context->backend_context;
-	int error_posix = 0;
+	int max = 0;
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
 
-	if (error_posix != 0)
+	if (enum_lock != WAIT_OBJECT_0)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
 		return;
 	}
 
-	// find ptr for given device fd
-	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
 
-	while (input_loop_fds != NULL)
+	while (dinput_node != NULL)
 	{
-		if (((intptr_t) input_loop_fds) == id)
+		if (id == ((intptr_t) dinput_node))
 		{
 			break;
 		}
 
-		input_loop_fds = input_loop_fds->next;
+		dinput_node = dinput_node->next;
 	}
 
-	if (input_loop_fds == NULL)
+	if (dinput_node != NULL)
 	{
-		pthread_mutex_unlock(&(backend->mutex_main));
+		DIPROPDWORD property =
+		{
+			.diph =
+			{
+				.dwSize = sizeof (DIPROPDWORD),
+				.dwHeaderSize = sizeof (DIPROPHEADER),
+				.dwObj = property,
+				.dwHow = DIPH_DEVICE,
+			},
+			.dwData = (autocenter > 0) ? DIPROPAUTOCENTER_ON : DIPROPAUTOCENTER_OFF;
+		};
+
+		HRESULT result =
+			dinput_node->device->lpVtbl->SetProperty(
+				dinput_node->device,
+				&DIPROP_AUTOCENTER,
+				&property);
+
+		if (result != DI_OK)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_AUTOCENTER_SET);
+			return;
+		}
+	}
+
+	// ignore XInput
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
+	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_DOMAIN);
-		return;
-	}
-
-	// set gain
-	struct input_event event =
-	{
-		.type = EV_FF,
-		.code = FF_AUTOCENTER,
-		.value = 0xFFFFUL * autocenter / 100,
-	};
-
-	error_posix =
-		write(
-			input_loop_fds->device_fd,
-			(void*) &event,
-			sizeof (struct input_event));
-
-	if (error_posix == -1)
-	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_AUTOCENTER_SET);
-		return;
-	}
-
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
-
-	if (error_posix != 0)
-	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
 		return;
 	}
 
@@ -1701,75 +1695,132 @@ void punknobs_win_haptics_effect_play(
 	struct punknobs_error_info* error)
 {
 	struct win_backend* backend = context->backend_context;
-	int error_posix = 0;
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
-
-	if (error_posix != 0)
+	if (slot < 0)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID);
 		return;
 	}
 
-	// find ptr for given device fd
-	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
 
-	while (input_loop_fds != NULL)
+	if (enum_lock != WAIT_OBJECT_0)
 	{
-		if (((intptr_t) input_loop_fds) == id)
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+
+	while (dinput_node != NULL)
+	{
+		if (id == ((intptr_t) dinput_node))
 		{
 			break;
 		}
 
-		input_loop_fds = input_loop_fds->next;
+		dinput_node = dinput_node->next;
 	}
 
-	if (input_loop_fds == NULL)
+	if (dinput_node != NULL)
 	{
-		pthread_mutex_unlock(&(backend->mutex_main));
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_DOMAIN);
+		if (slot >= PUNKNOBS_DIRECTINPUT_MAX_SLOT)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID);
+			return;
+		}
+
+		HRESULT result =
+			dinput_node->effects[slot]->lpVtbl->Start(
+				dinput_node->effects[slot],
+				INFINITE,
+				DIES_NODOWNLOAD);
+
+		if (result != DI_OK)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_PLAY);
+			return;
+		}
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// all good
+		punknobs_error_ok(error);
 		return;
 	}
 
-	// set gain
-	struct input_event event =
-	{
-		.type = EV_FF,
-		.code = slot,
-		.value = repeat,
-	};
+	// search for XInput devices
+	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
 
-	error_posix =
-		write(
-			input_loop_fds->device_fd,
-			(void*) &event,
-			sizeof (struct input_event));
-
-	if (error_posix == -1)
+	while (xinput_node != NULL)
 	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_PLAY);
-		return;
+		if (id == ((intptr_t) xinput_node))
+		{
+			break;
+		}
+
+		xinput_node = xinput_node->next;
 	}
 
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+	if (xinput_node != NULL)
+	{
+		if (slot > 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID);
+			return;
+		}
 
-	if (error_posix != 0)
+		DWORD ok =
+			XInputSetState(
+				xinput_node->id,
+				&(xinput_node->effects[slot]));
+
+		if (ok != ERROR_SUCCESS)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_PLAY);
+			return;
+		}
+	}
+
+	// ignore invalid register requests
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
 		return;
 	}
 
@@ -1784,75 +1835,118 @@ void punknobs_win_haptics_effect_stop(
 	struct punknobs_error_info* error)
 {
 	struct win_backend* backend = context->backend_context;
-	int error_posix = 0;
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
 
-	if (error_posix != 0)
+	if (enum_lock != WAIT_OBJECT_0)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
 		return;
 	}
 
-	// find ptr for given device fd
-	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
 
-	while (input_loop_fds != NULL)
+	while (dinput_node != NULL)
 	{
-		if (((intptr_t) input_loop_fds) == id)
+		if (id == ((intptr_t) dinput_node))
 		{
 			break;
 		}
 
-		input_loop_fds = input_loop_fds->next;
+		dinput_node = dinput_node->next;
 	}
 
-	if (input_loop_fds == NULL)
+	if (dinput_node != NULL)
 	{
-		pthread_mutex_unlock(&(backend->mutex_main));
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_DOMAIN);
+		if (slot >= PUNKNOBS_DIRECTINPUT_MAX_SLOT)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID);
+			return;
+		}
+
+		HRESULT result =
+			dinput_node->effects[slot]->lpVtbl->Stop(
+				dinput_node->effects[slot]);
+
+		if (result != DI_OK)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_STOP);
+			return;
+		}
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// all good
+		punknobs_error_ok(error);
 		return;
 	}
 
-	// set gain
-	struct input_event event =
-	{
-		.type = EV_FF,
-		.code = slot,
-		.value = 0,
-	};
+	// search for XInput devices
+	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
 
-	error_posix =
-		write(
-			input_loop_fds->device_fd,
-			(void*) &event,
-			sizeof (struct input_event));
-
-	if (error_posix == -1)
+	while (xinput_node != NULL)
 	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_STOP);
-		return;
+		if (id == ((intptr_t) xinput_node))
+		{
+			break;
+		}
+
+		xinput_node = xinput_node->next;
 	}
 
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+	if (xinput_node != NULL)
+	{
+		XINPUT_VIBRATION vibration =
+		{
+			.wLeftMotorSpeed = 0,
+			.wRightMotorSpeed = 0,
+		};
 
-	if (error_posix != 0)
+		DWORD ok =
+			XInputSetState(
+				xinput_node->id,
+				&vibration);
+
+		if (ok != ERROR_SUCCESS)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_STOP);
+			return;
+		}
+	}
+
+	// ignore invalid register requests
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
 		return;
 	}
 
