@@ -59,7 +59,7 @@ struct win_device_enum_node_dinput
 	IDirectInputDevice8* device;
 	struct win_device_reg_node_dinput* reg_entry;
 	struct win_device_enum_node_dinput* next;
-	DIRECTINPUTEFFECT effects[PUNKNOBS_DIRECTINPUT_MAX_SLOT];
+	LPDIRECTINPUTEFFECT effects[PUNKNOBS_DIRECTINPUT_MAX_SLOT];
 	struct win_device_info info;
 	bool xinput_compatible;
 };

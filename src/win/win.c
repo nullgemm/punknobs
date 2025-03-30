@@ -1275,105 +1275,318 @@ int punknobs_win_haptics_effect_set(
 	struct punknobs_error_info* error)
 {
 	struct win_backend* backend = context->backend_context;
-	int error_posix = 0;
 
-	// create evdev effect 
-	struct ff_effect ffe =
+	// TODO make all platforms just overwrite whatever is in the requested slot
+	// (ie. remove slot auto-assign with '-1' when using evdev)
+	int slot = effect->id;
+
+	if ((slot < 0) || (slot >= PUNKNOBS_DIRECTINPUT_MAX_SLOT))
 	{
-		.type = lut_features[effect->type],
-		.id = -1,
-		.direction = effect->direction,
-		.trigger =
-		{
-			.button = effect->trigger.button,
-			.interval = effect->trigger.interval,
-		},
-		.replay =
-		{
-			.length = effect->replay.length,
-			.delay = effect->replay.delay,
-		},
-	};
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID);
+		return -1;
+	}
 
-	switch (effect->type)
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+
+	if (enum_lock != WAIT_OBJECT_0)
 	{
-		case PUNKNOBS_HAPTICS_FEATURE_CONSTANT:
-		{
-			ffe.u.constant.level = effect->config.constant.level;
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return -1;
+	}
 
-			ffe.u.constant.envelope.attack_length =
-				effect->config.constant.envelope.attack_length;
-			ffe.u.constant.envelope.attack_level =
-				effect->config.constant.envelope.attack_level;
-			ffe.u.constant.envelope.fade_length =
-				effect->config.constant.envelope.fade_length;
-			ffe.u.constant.envelope.fade_level =
-				effect->config.constant.envelope.fade_level;
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+
+	while (dinput_node != NULL)
+	{
+		if (id == ((intptr_t) dinput_node))
+		{
 			break;
 		}
-		case PUNKNOBS_HAPTICS_FEATURE_RAMP:
-		{
-			ffe.u.ramp.start_level = effect->config.ramp.start_level;
-			ffe.u.ramp.end_level = effect->config.ramp.end_level;
 
-			ffe.u.ramp.envelope.attack_length =
-				effect->config.ramp.envelope.attack_length;
-			ffe.u.ramp.envelope.attack_level =
-				effect->config.ramp.envelope.attack_level;
-			ffe.u.ramp.envelope.fade_length =
-				effect->config.ramp.envelope.fade_length;
-			ffe.u.ramp.envelope.fade_level =
-				effect->config.ramp.envelope.fade_level;
+		dinput_node = dinput_node->next;
+	}
+
+	if (dinput_node != NULL)
+	{
+		GUID type;
+		LPVOID params;
+		DWORD params_size;
+
+		DIENVELOPE envelope =
+		{
+			.dwSize = sizeof (DIENVELOPE),
+		};
+
+		DICONSTANTFORCE constant;
+		DIRAMPFORCE ramp;
+		DIPERIODIC periodic;
+		DICONDITION condition[2];
+
+		// TODO support axes (objectids map, see IDirectInputDevice8::EnumObjects)
+		DWORD axes = 2;
+		DWORD axes_ids[2] = {0, 0};
+		LONG directions[2] = {effect->direction, effect->direction};
+
+		switch (effect->type)
+		{
+			case PUNKNOBS_HAPTICS_FEATURE_CONSTANT:
+			{
+				constant.lMagnitude = effect->config.constant.level * 100;
+
+				type = GUID_ConstantForce;
+
+				params_size = sizeof (DICONSTANTFORCE);
+				params = (LPVOID) &constant;
+
+				envelope.dwAttackLevel = effect->config.constant.envelope.attack_level * 100;
+				envelope.dwAttackTime = effect->config.constant.envelope.attack_length * 1000;
+				envelope.dwFadeLevel = effect->config.constant.envelope.fade_level * 100;
+				envelope.dwFadeTime = effect->config.constant.envelope.fade_length * 1000;
+				break;
+			}
+			case PUNKNOBS_HAPTICS_FEATURE_RAMP:
+			{
+				ramp.lStart = effect->config.ramp.start_level * 100;
+				ramp.lEnd = effect->config.ramp.end_level* 100;
+
+				type = GUID_RampForce;
+
+				params_size = sizeof (DIRAMPFORCE);
+				params = (LPVOID) &ramp;
+
+				envelope.dwAttackLevel = effect->config.ramp.envelope.attack_level * 100;
+				envelope.dwAttackTime = effect->config.ramp.envelope.attack_length * 1000;
+				envelope.dwFadeLevel = effect->config.ramp.envelope.fade_level * 100;
+				envelope.dwFadeTime = effect->config.ramp.envelope.fade_length * 1000;
+				break;
+			}
+			case PUNKNOBS_HAPTICS_FEATURE_PERIODIC:
+			{
+				periodic.dwMagnitude = effect->config.periodic.magnitude * 100;
+				periodic.lOffset = effect->config.periodic.offset;
+				periodic.dwPhase = effect->config.periodic.phase;
+				periodic.dwPeriod = effect->config.periodic.period * 1000;
+
+				switch (effect->config.periodic.waveform)
+				{
+					case PUNKNOBS_HAPTICS_WAVEFORM_SQUARE:
+					{
+						type = GUID_Square;
+						break;
+					}
+					case PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE:
+					{
+						type = GUID_Triangle;
+						break;
+					}
+					case PUNKNOBS_HAPTICS_WAVEFORM_SINE:
+					{
+						type = GUID_Sine;
+						break;
+					}
+					case PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP:
+					{
+						type = GUID_SawtoothUp;
+						break;
+					}
+					case PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN:
+					{
+						type = GUID_SawtoothDown;
+						break;
+					}
+					case PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM:
+					{
+						type = GUID_CustomForce;
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+
+				params_size = sizeof (DIPERIODIC);
+				params = (LPVOID) &periodic;
+
+				envelope.dwAttackLevel = effect->config.periodic.envelope.attack_level * 100;
+				envelope.dwAttackTime = effect->config.periodic.envelope.attack_length * 1000;
+				envelope.dwFadeLevel = effect->config.periodic.envelope.fade_level * 100;
+				envelope.dwFadeTime = effect->config.periodic.envelope.fade_length * 1000;
+				break;
+			}
+			case PUNKNOBS_HAPTICS_FEATURE_SPRING:
+			case PUNKNOBS_HAPTICS_FEATURE_FRICTION:
+			case PUNKNOBS_HAPTICS_FEATURE_DAMPER: // ???
+			case PUNKNOBS_HAPTICS_FEATURE_INERTIA: // ???
+			{
+				condition[0].lOffset = effect->config.condition[0].center * 100;
+				condition[0].lPositiveCoefficient = effect->config.condition[0].left_saturation * 100;
+				condition[0].lNegativeCoefficient = effect->config.condition[0].right_saturation * 100;
+				condition[0].dwPositiveSaturation = effect->config.condition[0].left_coeff * 100;
+				condition[0].dwNegativeSaturation = effect->config.condition[0].right_coeff * 100;
+				condition[0].lDeadBand = effect->config.condition[0].deadband * 100;
+
+				condition[1].lOffset = effect->config.condition[1].center * 100;
+				condition[1].lPositiveCoefficient = effect->config.condition[1].left_saturation * 100;
+				condition[1].lNegativeCoefficient = effect->config.condition[1].right_saturation * 100;
+				condition[1].dwPositiveSaturation = effect->config.condition[1].left_coeff * 100;
+				condition[1].dwNegativeSaturation = effect->config.condition[1].right_coeff * 100;
+				condition[1].lDeadBand = effect->config.condition[1].deadband * 100;
+
+				switch (effect->type)
+				{
+					case PUNKNOBS_HAPTICS_FEATURE_SPRING:
+					{
+						type = GUID_Spring;
+						break;
+					}
+					case PUNKNOBS_HAPTICS_FEATURE_FRICTION:
+					{
+						type = GUID_Friction;
+						break;
+					}
+					case PUNKNOBS_HAPTICS_FEATURE_DAMPER:
+					{
+						type = GUID_Damper;
+						break;
+					}
+					case PUNKNOBS_HAPTICS_FEATURE_INERTIA:
+					{
+						type = GUID_Inertia;
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+
+				params_size = sizeof (DICONDITION);
+				params = (LPVOID) &condition;
+				break;
+			}
+			case PUNKNOBS_HAPTICS_FEATURE_RUMBLE:
+			{
+				int value_weak = effect->config.rumble.weak_magnitude * 100;
+				int value_strong = effect->config.rumble.strong_magnitude * 100;
+
+				if (value_weak > value_strong)
+				{
+					periodic.dwMagnitude = value_weak;
+				}
+				else
+				{
+					periodic.dwMagnitude = value_strong;
+				}
+
+				periodic.lOffset = 0;
+				periodic.dwPhase = 0
+				periodic.dwPeriod = 50 * 1000;
+
+				type = GUID_Sine;
+
+				params_size = sizeof (DIPERIODIC);
+				params = (LPVOID) &periodic;
+
+				envelope.dwAttackLevel = 100 * 100;
+				envelope.dwAttackTime = 0;
+				envelope.dwFadeLevel = 100 * 100;
+				envelope.dwFadeTime = 0;
+				break;
+			}
+			default:
+			{
+				punknobs_error_throw(
+					context,
+					error,
+					PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_TYPE);
+				return -1;
+			}
+		}
+
+		// TODO support conditions with buttons etc. (objectids map, see IDirectInputDevice8::EnumObjects)
+		DIEFFECT config =
+		{
+			.dwSize = sizeof (DIEFFECT),
+			.dwFlags = DIEFF_CARTESIAN | DIEFF_OBJECTIDS,
+			.dwDuration = INFINITE,
+			.dwSamplePeriod = 0,
+			.dwGain = 0,
+			.dwTriggerButton = effect->trigger.button,
+			.dwTriggerRepeatInterval = effect->trigger.interval * 1000,
+			.cAxes = axes,
+			.rgdwAxes = axes_ids,
+			.rglDirection = directions,
+			.lpEnvelope = &envelope,
+			.cbTypeSpecificParams = params_size,
+			.lpvTypeSpecificParams = params,
+			.dwStartDelay = 0,
+		};
+
+		HRESULT result =
+			dinput_node->device->lpVtbl->CreateEffect(
+				dinput_node->device,
+				&type,
+				&config,
+				&(dinput_node->effects[slot]),
+				NULL);
+
+		if (result != DI_OK)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_CREATE);
+			return -1;
+		}
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return -1;
+		}
+
+		// all good
+		punknobs_error_ok(error);
+		return slot;
+	}
+
+	// search for XInput devices
+	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+
+	while (xinput_node != NULL)
+	{
+		if (id == ((intptr_t) xinput_node))
+		{
 			break;
 		}
-		case PUNKNOBS_HAPTICS_FEATURE_PERIODIC:
+
+		xinput_node = xinput_node->next;
+	}
+
+	if (xinput_node != NULL)
+	{
+		if (effect->type == PUNKNOBS_HAPTICS_FEATURE_RUMBLE)
 		{
-			ffe.u.periodic.waveform = lut_waveforms[effect->config.periodic.waveform];
-			ffe.u.periodic.period = effect->config.periodic.period;
-			ffe.u.periodic.magnitude = effect->config.periodic.magnitude;
-			ffe.u.periodic.offset = effect->config.periodic.offset;
-			ffe.u.periodic.phase = effect->config.periodic.phase;
-
-			ffe.u.periodic.custom_len = 0;
-			ffe.u.periodic.custom_data = NULL;
-
-			ffe.u.periodic.envelope.attack_length =
-				effect->config.periodic.envelope.attack_length;
-			ffe.u.periodic.envelope.attack_level =
-				effect->config.periodic.envelope.attack_level;
-			ffe.u.periodic.envelope.fade_length =
-				effect->config.periodic.envelope.fade_length;
-			ffe.u.periodic.envelope.fade_level =
-				effect->config.periodic.envelope.fade_level;
+			xinput_node->effects[slot].wLeftMotorSpeed = effect->config.rumble.strong_magnitude;
+			xinput_node->effects[slot].wRightMotorSpeed = effect->config.rumble.weak_magnitude;
 			break;
 		}
-		case PUNKNOBS_HAPTICS_FEATURE_SPRING:
-		case PUNKNOBS_HAPTICS_FEATURE_FRICTION:
-		case PUNKNOBS_HAPTICS_FEATURE_DAMPER: // ???
-		case PUNKNOBS_HAPTICS_FEATURE_INERTIA: // ???
-		{
-			ffe.u.condition[0].right_saturation = effect->config.condition[0].right_saturation;
-			ffe.u.condition[0].left_saturation = effect->config.condition[0].left_saturation;
-			ffe.u.condition[0].right_coeff = effect->config.condition[0].right_coeff;
-			ffe.u.condition[0].left_coeff = effect->config.condition[0].left_coeff;
-			ffe.u.condition[0].deadband = effect->config.condition[0].deadband;
-			ffe.u.condition[0].center = effect->config.condition[0].center;
-
-			ffe.u.condition[1].right_saturation = effect->config.condition[1].right_saturation;
-			ffe.u.condition[1].left_saturation = effect->config.condition[1].left_saturation;
-			ffe.u.condition[1].right_coeff = effect->config.condition[1].right_coeff;
-			ffe.u.condition[1].left_coeff = effect->config.condition[1].left_coeff;
-			ffe.u.condition[1].deadband = effect->config.condition[1].deadband;
-			ffe.u.condition[1].center = effect->config.condition[1].center;
-			break;
-		}
-		case PUNKNOBS_HAPTICS_FEATURE_RUMBLE:
-		{
-			ffe.u.rumble.strong_magnitude = effect->config.rumble.strong_magnitude;
-			ffe.u.rumble.weak_magnitude = effect->config.rumble.weak_magnitude;
-			break;
-		}
-		default:
+		else
 		{
 			punknobs_error_throw(
 				context,
@@ -1383,72 +1596,21 @@ int punknobs_win_haptics_effect_set(
 		}
 	}
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+	// ignore invalid register requests
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
 
-	if (error_posix != 0)
+	if (enum_unlock == 0)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
-		return -1;
-	}
-
-	// find ptr for given device fd
-	struct win_info* input_loop_fds = backend->input_loop_fds->next;
-
-	while (input_loop_fds != NULL)
-	{
-		if (((intptr_t) input_loop_fds) == id)
-		{
-			break;
-		}
-
-		input_loop_fds = input_loop_fds->next;
-	}
-
-	if (input_loop_fds == NULL)
-	{
-		pthread_mutex_unlock(&(backend->mutex_main));
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_DOMAIN);
-		return -1;
-	}
-
-	// set effect
-	error_posix =
-		ioctl(
-			input_loop_fds->device_fd,
-			EVIOCSFF,
-			&ffe);
-
-	if (error_posix == -1)
-	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_SET);
-		return -1;
-	}
-
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
-
-	if (error_posix != 0)
-	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
 		return -1;
 	}
 
 	// all good
 	punknobs_error_ok(error);
-	return ffe.id;
+	return slot;
 }
 
 void punknobs_win_haptics_effect_del(
@@ -1458,68 +1620,129 @@ void punknobs_win_haptics_effect_del(
 	struct punknobs_error_info* error)
 {
 	struct win_backend* backend = context->backend_context;
-	int error_posix = 0;
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
-
-	if (error_posix != 0)
+	if ((slot < 0) || (slot >= PUNKNOBS_DIRECTINPUT_MAX_SLOT))
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID);
 		return;
 	}
 
-	// find ptr for given device fd
-	struct win_info* input_loop_fds = backend->input_loop_fds->next;
+	// lock mutex
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
 
-	while (input_loop_fds != NULL)
+	if (enum_lock != WAIT_OBJECT_0)
 	{
-		if (((intptr_t) input_loop_fds) == id)
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
+		return;
+	}
+
+	// search for DirectInput devices
+	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+
+	while (dinput_node != NULL)
+	{
+		if (id == ((intptr_t) dinput_node))
 		{
 			break;
 		}
 
-		input_loop_fds = input_loop_fds->next;
+		dinput_node = dinput_node->next;
 	}
 
-	if (input_loop_fds == NULL)
+	if (dinput_node != NULL)
 	{
-		pthread_mutex_unlock(&(backend->mutex_main));
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_DOMAIN);
+		if (slot >= PUNKNOBS_DIRECTINPUT_MAX_SLOT)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID);
+			return;
+		}
+
+		// remove from device
+		HRESULT result =
+			dinput_node->effects[slot]->lpVtbl->Unload(
+				dinput_node->effects[slot]);
+
+		if (result != DI_OK)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_STOP);
+			return;
+		}
+
+		// release COM object
+		dinput_node->effects[slot]->lpVtbl->Release(
+			dinput_node->effects[slot]);
+
+		// unlock mutex
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+
+		if (reg_unlock == 0)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
+			return;
+		}
+
+		// all good
+		punknobs_error_ok(error);
 		return;
 	}
 
-	// get max
-	error_posix =
-		ioctl(
-			input_loop_fds->device_fd,
-			EVIOCRMFF,
-			slot);
+	// search for XInput devices
+	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
 
-	if (error_posix == -1)
+	while (xinput_node != NULL)
 	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_EFFECTS_DEL);
-		return;
+		if (id == ((intptr_t) xinput_node))
+		{
+			break;
+		}
+
+		xinput_node = xinput_node->next;
 	}
 
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+	if (xinput_node != NULL)
+	{
+		xinput_node->effects[slot].wLeftMotorSpeed = 0;
+		xinput_node->effects[slot].wRightMotorSpeed = 0;
 
-	if (error_posix != 0)
+		DWORD ok =
+			XInputSetState(
+				xinput_node->id,
+				&(xinput_node->effects[slot]));
+
+		if (ok != ERROR_SUCCESS)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_STOP);
+			return;
+		}
+	}
+
+	// ignore invalid register requests
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+
+	if (enum_unlock == 0)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
 		return;
 	}
 
@@ -1696,7 +1919,7 @@ void punknobs_win_haptics_effect_play(
 {
 	struct win_backend* backend = context->backend_context;
 
-	if (slot < 0)
+	if ((slot < 0) || (slot >= PUNKNOBS_DIRECTINPUT_MAX_SLOT))
 	{
 		punknobs_error_throw(
 			context,
@@ -1732,15 +1955,6 @@ void punknobs_win_haptics_effect_play(
 
 	if (dinput_node != NULL)
 	{
-		if (slot >= PUNKNOBS_DIRECTINPUT_MAX_SLOT)
-		{
-			punknobs_error_throw(
-				context,
-				error,
-				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID);
-			return;
-		}
-
 		HRESULT result =
 			dinput_node->effects[slot]->lpVtbl->Start(
 				dinput_node->effects[slot],
@@ -1788,15 +2002,6 @@ void punknobs_win_haptics_effect_play(
 
 	if (xinput_node != NULL)
 	{
-		if (slot > 0)
-		{
-			punknobs_error_throw(
-				context,
-				error,
-				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID);
-			return;
-		}
-
 		DWORD ok =
 			XInputSetState(
 				xinput_node->id,
