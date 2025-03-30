@@ -18,7 +18,7 @@
 #include <windows.h>
 #include <xinput.h>
 
-BOOL effects_callback(LPCDIEffectInfo pdei, LPVOID pvRef)
+BOOL effects_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 {
 	struct punknobs_haptics_features* features =
 		(struct punknobs_haptics_features*) pvRef;
@@ -111,50 +111,50 @@ BOOL effects_callback(LPCDIEffectInfo pdei, LPVOID pvRef)
 	return TRUE;
 }
 
-BOOL waveforms_callback(LPCDIEffectInfo pdei, LPVOID pvRef)
+BOOL waveforms_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 {
-	struct punknobs_haptics_features* features =
-		(struct punknobs_haptics_features*) pvRef;
+	struct punknobs_haptics_waveforms* waveforms =
+		(struct punknobs_haptics_waveforms*) pvRef;
 
 	if (IsEqualGUID(&(pdei->guid), &GUID_Square) == TRUE)
 	{
-		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_SQUARE;
-		features->count += 1;
+		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SQUARE;
+		waveforms->count += 1;
 		return TRUE;
 	}
 
 	if (IsEqualGUID(&(pdei->guid), &GUID_Triangle) == TRUE)
 	{
-		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE;
-		features->count += 1;
+		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE;
+		waveforms->count += 1;
 		return TRUE;
 	}
 
 	if (IsEqualGUID(&(pdei->guid), &GUID_Sine) == TRUE)
 	{
-		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_SINE;
-		features->count += 1;
+		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SINE;
+		waveforms->count += 1;
 		return TRUE;
 	}
 
 	if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothUp) == TRUE)
 	{
-		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP;
-		features->count += 1;
+		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP;
+		waveforms->count += 1;
 		return TRUE;
 	}
 
 	if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothDown) == TRUE)
 	{
-		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN;
-		features->count += 1;
+		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN;
+		waveforms->count += 1;
 		return TRUE;
 	}
 
 	if (IsEqualGUID(&(pdei->guid), &GUID_CustomForce) == TRUE)
 	{
-		features->list[features->count] = PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM;
-		features->count += 1;
+		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM;
+		waveforms->count += 1;
 		return TRUE;
 	}
 
@@ -990,7 +990,7 @@ void punknobs_win_haptics_get_features(
 			punknobs_error_throw(
 				context,
 				error,
-				PUNKNOBS_ERROR_BACKEND_WIN_ENUM_EFFECTS);
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_ENUM);
 			return;
 		}
 
@@ -1001,7 +1001,7 @@ void punknobs_win_haptics_get_features(
 		features->count += 1;
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
 
 		if (reg_unlock == 0)
 		{
@@ -1121,12 +1121,12 @@ void punknobs_win_haptics_get_waveforms(
 			punknobs_error_throw(
 				context,
 				error,
-				PUNKNOBS_ERROR_BACKEND_WIN_ENUM_WAVEFORMS);
+				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_ENUM);
 			return;
 		}
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
 
 		if (reg_unlock == 0)
 		{
@@ -1194,7 +1194,7 @@ int punknobs_win_haptics_effect_max(
 			context,
 			error,
 			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_LOCK);
-		return;
+		return -1;
 	}
 
 	// search for DirectInput devices
@@ -1216,7 +1216,7 @@ int punknobs_win_haptics_effect_max(
 		max = PUNKNOBS_DIRECTINPUT_MAX_SLOT;
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
 
 		if (reg_unlock == 0)
 		{
@@ -1224,7 +1224,7 @@ int punknobs_win_haptics_effect_max(
 				context,
 				error,
 				PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
-			return;
+			return -1;
 		}
 
 		// all good
@@ -1260,7 +1260,7 @@ int punknobs_win_haptics_effect_max(
 			context,
 			error,
 			PUNKNOBS_ERROR_BACKEND_WIN_MUTEX_UNLOCK);
-		return;
+		return -1;
 	}
 
 	// all good
@@ -1488,7 +1488,7 @@ int punknobs_win_haptics_effect_set(
 				}
 
 				periodic.lOffset = 0;
-				periodic.dwPhase = 0
+				periodic.dwPhase = 0;
 				periodic.dwPeriod = 50 * 1000;
 
 				type = GUID_Sine;
@@ -1549,7 +1549,7 @@ int punknobs_win_haptics_effect_set(
 		}
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
 
 		if (reg_unlock == 0)
 		{
@@ -1584,7 +1584,6 @@ int punknobs_win_haptics_effect_set(
 		{
 			xinput_node->effects[slot].wLeftMotorSpeed = effect->config.rumble.strong_magnitude;
 			xinput_node->effects[slot].wRightMotorSpeed = effect->config.rumble.weak_magnitude;
-			break;
 		}
 		else
 		{
@@ -1685,7 +1684,7 @@ void punknobs_win_haptics_effect_del(
 			dinput_node->effects[slot]);
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
 
 		if (reg_unlock == 0)
 		{
@@ -1792,7 +1791,7 @@ void punknobs_win_haptics_gain_set(
 			{
 				.dwSize = sizeof (DIPROPDWORD),
 				.dwHeaderSize = sizeof (DIPROPHEADER),
-				.dwObj = property,
+				.dwObj = 0,
 				.dwHow = DIPH_DEVICE,
 			},
 			.dwData = gain * 100,
@@ -1801,8 +1800,8 @@ void punknobs_win_haptics_gain_set(
 		HRESULT result =
 			dinput_node->device->lpVtbl->SetProperty(
 				dinput_node->device,
-				&DIPROP_FFGAIN,
-				&property);
+				DIPROP_FFGAIN,
+				&(property.diph));
 
 		if (result != DI_OK)
 		{
@@ -1872,17 +1871,17 @@ void punknobs_win_haptics_autocenter_set(
 			{
 				.dwSize = sizeof (DIPROPDWORD),
 				.dwHeaderSize = sizeof (DIPROPHEADER),
-				.dwObj = property,
+				.dwObj = 0,
 				.dwHow = DIPH_DEVICE,
 			},
-			.dwData = (autocenter > 0) ? DIPROPAUTOCENTER_ON : DIPROPAUTOCENTER_OFF;
+			.dwData = (autocenter > 0) ? DIPROPAUTOCENTER_ON : DIPROPAUTOCENTER_OFF,
 		};
 
 		HRESULT result =
 			dinput_node->device->lpVtbl->SetProperty(
 				dinput_node->device,
-				&DIPROP_AUTOCENTER,
-				&property);
+				DIPROP_AUTOCENTER,
+				&(property.diph));
 
 		if (result != DI_OK)
 		{
@@ -1971,7 +1970,7 @@ void punknobs_win_haptics_effect_play(
 		}
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
 
 		if (reg_unlock == 0)
 		{
@@ -2091,7 +2090,7 @@ void punknobs_win_haptics_effect_stop(
 		}
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
 
 		if (reg_unlock == 0)
 		{

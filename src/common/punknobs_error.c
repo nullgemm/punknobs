@@ -154,6 +154,12 @@ void punknobs_error_init(
 		"could not stop effect";
 	log[PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_PLAY] =
 		"could not start effect";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_ENUM] =
+		"could not enumerate effects";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_GAIN_SET] =
+		"could not set gain";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_AUTOCENTER_SET] =
+		"could not set autocenter";
 	// macos
 	log[PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING] =
 		"could not convert string";
