@@ -146,6 +146,14 @@ void punknobs_error_init(
 		"could not start input thread";
 	log[PUNKNOBS_ERROR_BACKEND_WIN_THREAD_INPUT_CLOSE] =
 		"could not stop input thread";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_CREATE] =
+		"could not create effect";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_SLOT_INVALID] =
+		"invalid effect slot";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_STOP] =
+		"could not stop effect";
+	log[PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_PLAY] =
+		"could not start effect";
 	// macos
 	log[PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING] =
 		"could not convert string";
