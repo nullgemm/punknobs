@@ -975,7 +975,7 @@ void punknobs_win_haptics_get_features(
 		HRESULT result =
 			dinput_node->device->lpVtbl->EnumEffects(
 				dinput_node->device,
-				effects_callback,
+				&effects_callback,
 				features,
 				DIEFT_ALL);
 
@@ -1102,11 +1102,13 @@ void punknobs_win_haptics_get_waveforms(
 			return;
 		}
 
+		waveforms->count = 0;
+
 		// detect main waveforms
 		HRESULT result =
 			dinput_node->device->lpVtbl->EnumEffects(
 				dinput_node->device,
-				waveforms_callback,
+				&waveforms_callback,
 				waveforms,
 				DIEFT_ALL);
 
