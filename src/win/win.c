@@ -29,82 +29,71 @@ BOOL effects_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 		return FALSE;
 	}
 
-	switch (pdei->dwEffType)
+	if ((pdei->dwEffType & DIEFT_PERIODIC) != 0)
 	{
-		case DIEFT_PERIODIC:
+		size_t i = 0;
+
+		// search for rumble/periodic in already reported features
+		while (i < features->count)
 		{
-			size_t i = 0;
-
-			// search for rumble/periodic in already reported features
-			while (i < features->count)
+			if ((features->list[i] == PUNKNOBS_HAPTICS_FEATURE_RUMBLE)
+			|| (features->list[i] == PUNKNOBS_HAPTICS_FEATURE_PERIODIC))
 			{
-				if ((features->list[i] == PUNKNOBS_HAPTICS_FEATURE_RUMBLE)
-				|| (features->list[i] == PUNKNOBS_HAPTICS_FEATURE_PERIODIC))
-				{
-					break;
-				}
-
-				++i;
+				break;
 			}
 
-			// not found, let's add it (we must ignore extra requests for each waveform type)
-			if (i == features->count)
-			{
-				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_RUMBLE;
-				features->count += 1;
-				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_PERIODIC;
-				features->count += 1;
-			}
-
-			break;
+			++i;
 		}
-		case DIEFT_CONSTANTFORCE:
-		{
-			if (IsEqualGUID(&(pdei->guid), &GUID_ConstantForce) == TRUE)
-			{
-				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_CONSTANT;
-				features->count += 1;
-			}
 
-			break;
+		// not found, let's add it (we must ignore extra requests for each waveform type)
+		if (i == features->count)
+		{
+			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_RUMBLE;
+			features->count += 1;
+			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_PERIODIC;
+			features->count += 1;
 		}
-		case DIEFT_CONDITION:
+	}
+	if ((pdei->dwEffType & DIEFT_CONSTANTFORCE) != 0)
+	{
+		if (IsEqualGUID(&(pdei->guid), &GUID_ConstantForce) == TRUE)
 		{
-			if (IsEqualGUID(&(pdei->guid), &GUID_Spring) == TRUE)
-			{
-				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_SPRING;
-				features->count += 1;
-			}
-
-			if (IsEqualGUID(&(pdei->guid), &GUID_Friction) == TRUE)
-			{
-				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_FRICTION;
-				features->count += 1;
-			}
-
-			if (IsEqualGUID(&(pdei->guid), &GUID_Damper) == TRUE)
-			{
-				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_DAMPER;
-				features->count += 1;
-			}
-
-			if (IsEqualGUID(&(pdei->guid), &GUID_Inertia) == TRUE)
-			{
-				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_INERTIA;
-				features->count += 1;
-			}
-
-			break;
+			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_CONSTANT;
+			features->count += 1;
 		}
-		case DIEFT_RAMPFORCE:
+	}
+	if ((pdei->dwEffType & DIEFT_CONDITION) != 0)
+	{
+		if (IsEqualGUID(&(pdei->guid), &GUID_Spring) == TRUE)
 		{
-			if (IsEqualGUID(&(pdei->guid), &GUID_RampForce) == TRUE)
-			{
-				features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_RAMP;
-				features->count += 1;
-			}
+			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_SPRING;
+			features->count += 1;
+		}
 
-			break;
+		if (IsEqualGUID(&(pdei->guid), &GUID_Friction) == TRUE)
+		{
+			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_FRICTION;
+			features->count += 1;
+		}
+
+		if (IsEqualGUID(&(pdei->guid), &GUID_Damper) == TRUE)
+		{
+			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_DAMPER;
+			features->count += 1;
+		}
+
+		if (IsEqualGUID(&(pdei->guid), &GUID_Inertia) == TRUE)
+		{
+			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_INERTIA;
+			features->count += 1;
+		}
+	}
+	if ((pdei->dwEffType & DIEFT_RAMPFORCE) != 0)
+	{
+		if (IsEqualGUID(&(pdei->guid), &GUID_RampForce) == TRUE)
+		{
+			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_RAMP;
+			features->count += 1;
 		}
 	}
 
@@ -116,46 +105,49 @@ BOOL waveforms_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 	struct punknobs_haptics_waveforms* waveforms =
 		(struct punknobs_haptics_waveforms*) pvRef;
 
-	if (IsEqualGUID(&(pdei->guid), &GUID_Square) == TRUE)
+	if ((pdei->dwEffType & DIEFT_PERIODIC) != 0)
 	{
-		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SQUARE;
-		waveforms->count += 1;
-		return TRUE;
-	}
+		if (IsEqualGUID(&(pdei->guid), &GUID_Square) == TRUE)
+		{
+			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SQUARE;
+			waveforms->count += 1;
+			return TRUE;
+		}
 
-	if (IsEqualGUID(&(pdei->guid), &GUID_Triangle) == TRUE)
-	{
-		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE;
-		waveforms->count += 1;
-		return TRUE;
-	}
+		if (IsEqualGUID(&(pdei->guid), &GUID_Triangle) == TRUE)
+		{
+			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE;
+			waveforms->count += 1;
+			return TRUE;
+		}
 
-	if (IsEqualGUID(&(pdei->guid), &GUID_Sine) == TRUE)
-	{
-		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SINE;
-		waveforms->count += 1;
-		return TRUE;
-	}
+		if (IsEqualGUID(&(pdei->guid), &GUID_Sine) == TRUE)
+		{
+			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SINE;
+			waveforms->count += 1;
+			return TRUE;
+		}
 
-	if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothUp) == TRUE)
-	{
-		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP;
-		waveforms->count += 1;
-		return TRUE;
-	}
+		if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothUp) == TRUE)
+		{
+			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP;
+			waveforms->count += 1;
+			return TRUE;
+		}
 
-	if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothDown) == TRUE)
-	{
-		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN;
-		waveforms->count += 1;
-		return TRUE;
-	}
+		if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothDown) == TRUE)
+		{
+			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN;
+			waveforms->count += 1;
+			return TRUE;
+		}
 
-	if (IsEqualGUID(&(pdei->guid), &GUID_CustomForce) == TRUE)
-	{
-		waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM;
-		waveforms->count += 1;
-		return TRUE;
+		if (IsEqualGUID(&(pdei->guid), &GUID_CustomForce) == TRUE)
+		{
+			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM;
+			waveforms->count += 1;
+			return TRUE;
+		}
 	}
 
 	return TRUE;
@@ -976,6 +968,8 @@ void punknobs_win_haptics_get_features(
 			punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
 			return;
 		}
+
+		features->count = 0;
 
 		// detect main features
 		HRESULT result =
