@@ -11,6 +11,7 @@
 #include <xinput.h>
 #include <windows.h>
 
+// lower limit for DirectInput? https://patents.google.com/patent/US6710764B1/en
 #define PUNKNOBS_DIRECTINPUT_MAX_SLOT 12
 
 union win_device_enum_node
@@ -49,7 +50,6 @@ struct win_device_enum_node_xinput
 	DWORD id;
 	struct win_device_reg_node_xinput* reg_entry;
 	struct win_device_enum_node_xinput* next;
-	XINPUT_VIBRATION effects[PUNKNOBS_DIRECTINPUT_MAX_SLOT];
 	struct win_device_info info;
 };
 
@@ -59,7 +59,6 @@ struct win_device_enum_node_dinput
 	IDirectInputDevice8* device;
 	struct win_device_reg_node_dinput* reg_entry;
 	struct win_device_enum_node_dinput* next;
-	LPDIRECTINPUTEFFECT effects[PUNKNOBS_DIRECTINPUT_MAX_SLOT];
 	struct win_device_info info;
 	bool xinput_compatible;
 };
@@ -68,6 +67,7 @@ struct win_device_enum_node_dinput
 struct win_device_reg_node_xinput
 {
 	XINPUT_STATE state;
+	XINPUT_VIBRATION effects[PUNKNOBS_DIRECTINPUT_MAX_SLOT];
 	struct win_device_enum_node_xinput* enum_entry;
 	struct win_device_reg_node_xinput* next;
 };
@@ -75,6 +75,7 @@ struct win_device_reg_node_xinput
 struct win_device_reg_node_dinput
 {
 	DIJOYSTATE state;
+	LPDIRECTINPUTEFFECT effects[PUNKNOBS_DIRECTINPUT_MAX_SLOT];
 	struct win_device_enum_node_dinput* enum_entry;
 	struct win_device_reg_node_dinput* next;
 };

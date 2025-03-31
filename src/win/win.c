@@ -921,6 +921,7 @@ void punknobs_win_reenumerate(
 	punknobs_error_ok(error);
 }
 
+// switch all enum_node logic to reg_node...
 // haptics management
 void punknobs_win_haptics_get_features(
 	struct punknobs* context,
@@ -931,7 +932,7 @@ void punknobs_win_haptics_get_features(
 	struct win_backend* backend = context->backend_context;
 
 	// lock mutex
-	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
 	if (enum_lock != WAIT_OBJECT_0)
 	{
@@ -943,20 +944,22 @@ void punknobs_win_haptics_get_features(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
 
-	while (dinput_node != NULL)
+	while (dinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) dinput_node))
+		if (id == ((intptr_t) dinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		dinput_node = dinput_node->next;
+		dinput_reg_node = dinput_reg_node->next;
 	}
 
-	if (dinput_node != NULL)
+	if (dinput_reg_node != NULL)
 	{
+		struct win_device_enum_node_dinput* dinput_node = dinput_reg_node->enum_entry;
+
 		// allocate features list
 		features->list =
 			malloc(
@@ -995,7 +998,7 @@ void punknobs_win_haptics_get_features(
 		features->count += 1;
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
 
 		if (reg_unlock == 0)
 		{
@@ -1012,19 +1015,19 @@ void punknobs_win_haptics_get_features(
 	}
 
 	// search for XInput devices
-	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+	struct win_device_reg_node_xinput* xinput_reg_node = backend->reg_devices_xinput;
 
-	while (xinput_node != NULL)
+	while (xinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) xinput_node))
+		if (id == ((intptr_t) xinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		xinput_node = xinput_node->next;
+		xinput_reg_node = xinput_reg_node->next;
 	}
 
-	if (xinput_node != NULL)
+	if (xinput_reg_node != NULL)
 	{
 		// allocate features list
 		features->list = malloc(sizeof (enum punknobs_haptics_feature));
@@ -1040,7 +1043,7 @@ void punknobs_win_haptics_get_features(
 	}
 
 	// ignore invalid register requests
-	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_reg);
 
 	if (enum_unlock == 0)
 	{
@@ -1064,7 +1067,7 @@ void punknobs_win_haptics_get_waveforms(
 	struct win_backend* backend = context->backend_context;
 
 	// lock mutex
-	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
 	if (enum_lock != WAIT_OBJECT_0)
 	{
@@ -1076,20 +1079,22 @@ void punknobs_win_haptics_get_waveforms(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
 
-	while (dinput_node != NULL)
+	while (dinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) dinput_node))
+		if (id == ((intptr_t) dinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		dinput_node = dinput_node->next;
+		dinput_reg_node = dinput_reg_node->next;
 	}
 
-	if (dinput_node != NULL)
+	if (dinput_reg_node != NULL)
 	{
+		struct win_device_enum_node_dinput* dinput_node = dinput_reg_node->enum_entry;
+
 		// allocate waveforms list
 		waveforms->list =
 			malloc(
@@ -1122,7 +1127,7 @@ void punknobs_win_haptics_get_waveforms(
 		}
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
 
 		if (reg_unlock == 0)
 		{
@@ -1139,26 +1144,26 @@ void punknobs_win_haptics_get_waveforms(
 	}
 
 	// search for XInput devices
-	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+	struct win_device_reg_node_xinput* xinput_reg_node = backend->reg_devices_xinput;
 
-	while (xinput_node != NULL)
+	while (xinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) xinput_node))
+		if (id == ((intptr_t) xinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		xinput_node = xinput_node->next;
+		xinput_reg_node = xinput_reg_node->next;
 	}
 
-	if (xinput_node != NULL)
+	if (xinput_reg_node != NULL)
 	{
 		waveforms->list = NULL;
 		waveforms->count = 0;
 	}
 
 	// ignore invalid register requests
-	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_reg);
 
 	if (enum_unlock == 0)
 	{
@@ -1182,7 +1187,7 @@ int punknobs_win_haptics_effect_max(
 	int max = 0;
 
 	// lock mutex
-	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
 	if (enum_lock != WAIT_OBJECT_0)
 	{
@@ -1194,25 +1199,24 @@ int punknobs_win_haptics_effect_max(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
 
-	while (dinput_node != NULL)
+	while (dinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) dinput_node))
+		if (id == ((intptr_t) dinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		dinput_node = dinput_node->next;
+		dinput_reg_node = dinput_reg_node->next;
 	}
 
-	if (dinput_node != NULL)
+	if (dinput_reg_node != NULL)
 	{
-		// lower limit for DirectInput? https://patents.google.com/patent/US6710764B1/en
 		max = PUNKNOBS_DIRECTINPUT_MAX_SLOT;
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
 
 		if (reg_unlock == 0)
 		{
@@ -1229,26 +1233,26 @@ int punknobs_win_haptics_effect_max(
 	}
 
 	// search for XInput devices
-	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+	struct win_device_reg_node_xinput* xinput_reg_node = backend->reg_devices_xinput;
 
-	while (xinput_node != NULL)
+	while (xinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) xinput_node))
+		if (id == ((intptr_t) xinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		xinput_node = xinput_node->next;
+		xinput_reg_node = xinput_reg_node->next;
 	}
 
-	if (xinput_node != NULL)
+	if (xinput_reg_node != NULL)
 	{
 		// XInput is shit so we emulate slots
 		max = PUNKNOBS_DIRECTINPUT_MAX_SLOT;
 	}
 
 	// ignore invalid register requests
-	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_reg);
 
 	if (enum_unlock == 0)
 	{
@@ -1286,7 +1290,7 @@ int punknobs_win_haptics_effect_set(
 	}
 
 	// lock mutex
-	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
 	if (enum_lock != WAIT_OBJECT_0)
 	{
@@ -1298,20 +1302,22 @@ int punknobs_win_haptics_effect_set(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
 
-	while (dinput_node != NULL)
+	while (dinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) dinput_node))
+		if (id == ((intptr_t) dinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		dinput_node = dinput_node->next;
+		dinput_reg_node = dinput_reg_node->next;
 	}
 
-	if (dinput_node != NULL)
+	if (dinput_reg_node != NULL)
 	{
+		struct win_device_enum_node_dinput* dinput_node = dinput_reg_node->enum_entry;
+
 		GUID type;
 		LPVOID params;
 		DWORD params_size;
@@ -1532,7 +1538,7 @@ int punknobs_win_haptics_effect_set(
 				dinput_node->device,
 				&type,
 				&config,
-				&(dinput_node->effects[slot]),
+				&(dinput_reg_node->effects[slot]),
 				NULL);
 
 		if (result != DI_OK)
@@ -1545,7 +1551,7 @@ int punknobs_win_haptics_effect_set(
 		}
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
 
 		if (reg_unlock == 0)
 		{
@@ -1562,24 +1568,24 @@ int punknobs_win_haptics_effect_set(
 	}
 
 	// search for XInput devices
-	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+	struct win_device_reg_node_xinput* xinput_reg_node = backend->reg_devices_xinput;
 
-	while (xinput_node != NULL)
+	while (xinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) xinput_node))
+		if (id == ((intptr_t) xinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		xinput_node = xinput_node->next;
+		xinput_reg_node = xinput_reg_node->next;
 	}
 
-	if (xinput_node != NULL)
+	if (xinput_reg_node != NULL)
 	{
 		if (effect->type == PUNKNOBS_HAPTICS_FEATURE_RUMBLE)
 		{
-			xinput_node->effects[slot].wLeftMotorSpeed = effect->config.rumble.strong_magnitude;
-			xinput_node->effects[slot].wRightMotorSpeed = effect->config.rumble.weak_magnitude;
+			xinput_reg_node->effects[slot].wLeftMotorSpeed = effect->config.rumble.strong_magnitude;
+			xinput_reg_node->effects[slot].wRightMotorSpeed = effect->config.rumble.weak_magnitude;
 		}
 		else
 		{
@@ -1592,7 +1598,7 @@ int punknobs_win_haptics_effect_set(
 	}
 
 	// ignore invalid register requests
-	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_reg);
 
 	if (enum_unlock == 0)
 	{
@@ -1626,7 +1632,7 @@ void punknobs_win_haptics_effect_del(
 	}
 
 	// lock mutex
-	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
 	if (enum_lock != WAIT_OBJECT_0)
 	{
@@ -1638,19 +1644,19 @@ void punknobs_win_haptics_effect_del(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
 
-	while (dinput_node != NULL)
+	while (dinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) dinput_node))
+		if (id == ((intptr_t) dinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		dinput_node = dinput_node->next;
+		dinput_reg_node = dinput_reg_node->next;
 	}
 
-	if (dinput_node != NULL)
+	if (dinput_reg_node != NULL)
 	{
 		if (slot >= PUNKNOBS_DIRECTINPUT_MAX_SLOT)
 		{
@@ -1663,8 +1669,8 @@ void punknobs_win_haptics_effect_del(
 
 		// remove from device
 		HRESULT result =
-			dinput_node->effects[slot]->lpVtbl->Unload(
-				dinput_node->effects[slot]);
+			dinput_reg_node->effects[slot]->lpVtbl->Unload(
+				dinput_reg_node->effects[slot]);
 
 		if (result != DI_OK)
 		{
@@ -1676,11 +1682,11 @@ void punknobs_win_haptics_effect_del(
 		}
 
 		// release COM object
-		dinput_node->effects[slot]->lpVtbl->Release(
-			dinput_node->effects[slot]);
+		dinput_reg_node->effects[slot]->lpVtbl->Release(
+			dinput_reg_node->effects[slot]);
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
 
 		if (reg_unlock == 0)
 		{
@@ -1697,27 +1703,29 @@ void punknobs_win_haptics_effect_del(
 	}
 
 	// search for XInput devices
-	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+	struct win_device_reg_node_xinput* xinput_reg_node = backend->reg_devices_xinput;
 
-	while (xinput_node != NULL)
+	while (xinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) xinput_node))
+		if (id == ((intptr_t) xinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		xinput_node = xinput_node->next;
+		xinput_reg_node = xinput_reg_node->next;
 	}
 
-	if (xinput_node != NULL)
+	if (xinput_reg_node != NULL)
 	{
-		xinput_node->effects[slot].wLeftMotorSpeed = 0;
-		xinput_node->effects[slot].wRightMotorSpeed = 0;
+		struct win_device_enum_node_xinput* xinput_node = xinput_reg_node->enum_entry;
+
+		xinput_reg_node->effects[slot].wLeftMotorSpeed = 0;
+		xinput_reg_node->effects[slot].wRightMotorSpeed = 0;
 
 		DWORD ok =
 			XInputSetState(
 				xinput_node->id,
-				&(xinput_node->effects[slot]));
+				&(xinput_reg_node->effects[slot]));
 
 		if (ok != ERROR_SUCCESS)
 		{
@@ -1730,7 +1738,7 @@ void punknobs_win_haptics_effect_del(
 	}
 
 	// ignore invalid register requests
-	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_reg);
 
 	if (enum_unlock == 0)
 	{
@@ -1755,7 +1763,7 @@ void punknobs_win_haptics_gain_set(
 	int max = 0;
 
 	// lock mutex
-	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
 	if (enum_lock != WAIT_OBJECT_0)
 	{
@@ -1767,20 +1775,22 @@ void punknobs_win_haptics_gain_set(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
 
-	while (dinput_node != NULL)
+	while (dinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) dinput_node))
+		if (id == ((intptr_t) dinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		dinput_node = dinput_node->next;
+		dinput_reg_node = dinput_reg_node->next;
 	}
 
-	if (dinput_node != NULL)
+	if (dinput_reg_node != NULL)
 	{
+		struct win_device_enum_node_dinput* dinput_node = dinput_reg_node->enum_entry;
+
 		DIPROPDWORD property =
 		{
 			.diph =
@@ -1810,7 +1820,7 @@ void punknobs_win_haptics_gain_set(
 	}
 
 	// ignore XInput
-	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_reg);
 
 	if (enum_unlock == 0)
 	{
@@ -1835,7 +1845,7 @@ void punknobs_win_haptics_autocenter_set(
 	int max = 0;
 
 	// lock mutex
-	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
 	if (enum_lock != WAIT_OBJECT_0)
 	{
@@ -1847,20 +1857,22 @@ void punknobs_win_haptics_autocenter_set(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
 
-	while (dinput_node != NULL)
+	while (dinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) dinput_node))
+		if (id == ((intptr_t) dinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		dinput_node = dinput_node->next;
+		dinput_reg_node = dinput_reg_node->next;
 	}
 
-	if (dinput_node != NULL)
+	if (dinput_reg_node != NULL)
 	{
+		struct win_device_enum_node_dinput* dinput_node = dinput_reg_node->enum_entry;
+
 		DIPROPDWORD property =
 		{
 			.diph =
@@ -1890,7 +1902,7 @@ void punknobs_win_haptics_autocenter_set(
 	}
 
 	// ignore XInput
-	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_reg);
 
 	if (enum_unlock == 0)
 	{
@@ -1924,7 +1936,7 @@ void punknobs_win_haptics_effect_play(
 	}
 
 	// lock mutex
-	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
 	if (enum_lock != WAIT_OBJECT_0)
 	{
@@ -1936,23 +1948,23 @@ void punknobs_win_haptics_effect_play(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
 
-	while (dinput_node != NULL)
+	while (dinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) dinput_node))
+		if (id == ((intptr_t) dinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		dinput_node = dinput_node->next;
+		dinput_reg_node = dinput_reg_node->next;
 	}
 
-	if (dinput_node != NULL)
+	if (dinput_reg_node != NULL)
 	{
 		HRESULT result =
-			dinput_node->effects[slot]->lpVtbl->Start(
-				dinput_node->effects[slot],
+			dinput_reg_node->effects[slot]->lpVtbl->Start(
+				dinput_reg_node->effects[slot],
 				INFINITE,
 				DIES_NODOWNLOAD);
 
@@ -1966,7 +1978,7 @@ void punknobs_win_haptics_effect_play(
 		}
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
 
 		if (reg_unlock == 0)
 		{
@@ -1983,24 +1995,26 @@ void punknobs_win_haptics_effect_play(
 	}
 
 	// search for XInput devices
-	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+	struct win_device_reg_node_xinput* xinput_reg_node = backend->reg_devices_xinput;
 
-	while (xinput_node != NULL)
+	while (xinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) xinput_node))
+		if (id == ((intptr_t) xinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		xinput_node = xinput_node->next;
+		xinput_reg_node = xinput_reg_node->next;
 	}
 
-	if (xinput_node != NULL)
+	if (xinput_reg_node != NULL)
 	{
+		struct win_device_enum_node_xinput* xinput_node = xinput_reg_node->enum_entry;
+
 		DWORD ok =
 			XInputSetState(
 				xinput_node->id,
-				&(xinput_node->effects[slot]));
+				&(xinput_reg_node->effects[slot]));
 
 		if (ok != ERROR_SUCCESS)
 		{
@@ -2013,7 +2027,7 @@ void punknobs_win_haptics_effect_play(
 	}
 
 	// ignore invalid register requests
-	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_reg);
 
 	if (enum_unlock == 0)
 	{
@@ -2037,7 +2051,7 @@ void punknobs_win_haptics_effect_stop(
 	struct win_backend* backend = context->backend_context;
 
 	// lock mutex
-	DWORD enum_lock = WaitForSingleObject(backend->mutex_enum, INFINITE);
+	DWORD enum_lock = WaitForSingleObject(backend->mutex_reg, INFINITE);
 
 	if (enum_lock != WAIT_OBJECT_0)
 	{
@@ -2049,19 +2063,19 @@ void punknobs_win_haptics_effect_stop(
 	}
 
 	// search for DirectInput devices
-	struct win_device_enum_node_dinput* dinput_node = backend->new_enum_devices_dinput;
+	struct win_device_reg_node_dinput* dinput_reg_node = backend->reg_devices_dinput;
 
-	while (dinput_node != NULL)
+	while (dinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) dinput_node))
+		if (id == ((intptr_t) dinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		dinput_node = dinput_node->next;
+		dinput_reg_node = dinput_reg_node->next;
 	}
 
-	if (dinput_node != NULL)
+	if (dinput_reg_node != NULL)
 	{
 		if (slot >= PUNKNOBS_DIRECTINPUT_MAX_SLOT)
 		{
@@ -2073,8 +2087,8 @@ void punknobs_win_haptics_effect_stop(
 		}
 
 		HRESULT result =
-			dinput_node->effects[slot]->lpVtbl->Stop(
-				dinput_node->effects[slot]);
+			dinput_reg_node->effects[slot]->lpVtbl->Stop(
+				dinput_reg_node->effects[slot]);
 
 		if (result != DI_OK)
 		{
@@ -2086,7 +2100,7 @@ void punknobs_win_haptics_effect_stop(
 		}
 
 		// unlock mutex
-		BOOL reg_unlock = ReleaseMutex(backend->mutex_enum);
+		BOOL reg_unlock = ReleaseMutex(backend->mutex_reg);
 
 		if (reg_unlock == 0)
 		{
@@ -2103,20 +2117,22 @@ void punknobs_win_haptics_effect_stop(
 	}
 
 	// search for XInput devices
-	struct win_device_enum_node_xinput* xinput_node = backend->new_enum_devices_xinput;
+	struct win_device_reg_node_xinput* xinput_reg_node = backend->reg_devices_xinput;
 
-	while (xinput_node != NULL)
+	while (xinput_reg_node != NULL)
 	{
-		if (id == ((intptr_t) xinput_node))
+		if (id == ((intptr_t) xinput_reg_node->enum_entry))
 		{
 			break;
 		}
 
-		xinput_node = xinput_node->next;
+		xinput_reg_node = xinput_reg_node->next;
 	}
 
-	if (xinput_node != NULL)
+	if (xinput_reg_node != NULL)
 	{
+		struct win_device_enum_node_xinput* xinput_node = xinput_reg_node->enum_entry;
+
 		XINPUT_VIBRATION vibration =
 		{
 			.wLeftMotorSpeed = 0,
@@ -2139,7 +2155,7 @@ void punknobs_win_haptics_effect_stop(
 	}
 
 	// ignore invalid register requests
-	BOOL enum_unlock = ReleaseMutex(backend->mutex_enum);
+	BOOL enum_unlock = ReleaseMutex(backend->mutex_reg);
 
 	if (enum_unlock == 0)
 	{
