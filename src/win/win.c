@@ -612,6 +612,12 @@ void punknobs_win_register_add(
 			return;
 		}
 
+		// initialize effects to 0
+		for (size_t i = 0; i < PUNKNOBS_DIRECTINPUT_MAX_SLOT; ++i)
+		{
+			reg_device->effects[i] = NULL;
+		}
+
 		dinput_node->device->lpVtbl->SetCooperativeLevel(
 			dinput_node->device,
 			GetActiveWindow(),
@@ -720,6 +726,14 @@ void punknobs_win_register_add(
 		// save cross-pointers and info
 		xinput_node->reg_entry = reg_device;
 		reg_device->enum_entry = xinput_node;
+
+		// initialize effects to 0
+		for (size_t i = 0; i < PUNKNOBS_DIRECTINPUT_MAX_SLOT; ++i)
+		{
+			reg_device->effects[i].wLeftMotorSpeed = 0;
+			reg_device->effects[i].wRightMotorSpeed = 0;
+		}
+
 		xinput_node->info.registered = true;
 		memset(&(reg_device->state), 0, sizeof (XINPUT_STATE));
 
