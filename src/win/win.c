@@ -618,13 +618,21 @@ void punknobs_win_register_add(
 		dinput_node->device->lpVtbl->SetCooperativeLevel(
 			dinput_node->device,
 			GetActiveWindow(),
-			DISCL_BACKGROUND | DISCL_NONEXCLUSIVE);
+			DISCL_BACKGROUND | DISCL_EXCLUSIVE);
 
 		dinput_node->device->lpVtbl->SetDataFormat(
 			dinput_node->device, &c_dfDIJoystick);
 
 		dinput_node->device->lpVtbl->Acquire(
 			dinput_node->device);
+
+		dinput_node->device->lpVtbl->SendForceFeedbackCommand(
+			dinput_node->device,
+			DISFFC_RESET);
+
+		dinput_node->device->lpVtbl->SendForceFeedbackCommand(
+			dinput_node->device,
+			DISFFC_SETACTUATORSON);
 
 		// save cross-pointers and info
 		dinput_node->reg_entry = reg_device;
@@ -986,7 +994,7 @@ void punknobs_win_haptics_get_features(
 		HRESULT result =
 			dinput_node->device->lpVtbl->EnumEffects(
 				dinput_node->device,
-				&effects_callback,
+				effects_callback,
 				features,
 				DIEFT_ALL);
 
@@ -1119,7 +1127,7 @@ void punknobs_win_haptics_get_waveforms(
 		HRESULT result =
 			dinput_node->device->lpVtbl->EnumEffects(
 				dinput_node->device,
-				&waveforms_callback,
+				waveforms_callback,
 				waveforms,
 				DIEFT_ALL);
 

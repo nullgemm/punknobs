@@ -485,7 +485,8 @@ static void inputs_callback(
 	// vibrattttte
 	switch (code)
 	{
-		case 10:
+		//case 10:
+		case 13:
 		case 304:
 		{
 			if (value != 0)
@@ -505,7 +506,8 @@ static void inputs_callback(
 
 			break;
 		}
-		case 11:
+		//case 11:
+		case 14:
 		case 305:
 		{
 			if (value != 0)
