@@ -18,7 +18,7 @@
 #include <windows.h>
 #include <xinput.h>
 
-BOOL effects_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
+static BOOL CALLBACK effects_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 {
 	struct punknobs_haptics_features* features =
 		(struct punknobs_haptics_features*) pvRef;
@@ -26,7 +26,7 @@ BOOL effects_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 	// there was an issue, and DirectInput reported certain features twice or more...
 	if (features->count == PUNKNOBS_HAPTICS_FEATURE_COUNT)
 	{
-		return FALSE;
+		return DIENUM_STOP;
 	}
 
 	if ((pdei->dwEffType & DIEFT_PERIODIC) != 0)
@@ -69,20 +69,17 @@ BOOL effects_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_SPRING;
 			features->count += 1;
 		}
-
-		if (IsEqualGUID(&(pdei->guid), &GUID_Friction) == TRUE)
+		else if (IsEqualGUID(&(pdei->guid), &GUID_Friction) == TRUE)
 		{
 			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_FRICTION;
 			features->count += 1;
 		}
-
-		if (IsEqualGUID(&(pdei->guid), &GUID_Damper) == TRUE)
+		else if (IsEqualGUID(&(pdei->guid), &GUID_Damper) == TRUE)
 		{
 			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_DAMPER;
 			features->count += 1;
 		}
-
-		if (IsEqualGUID(&(pdei->guid), &GUID_Inertia) == TRUE)
+		else if (IsEqualGUID(&(pdei->guid), &GUID_Inertia) == TRUE)
 		{
 			features->list[features->count] = PUNKNOBS_HAPTICS_FEATURE_INERTIA;
 			features->count += 1;
@@ -97,10 +94,10 @@ BOOL effects_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 		}
 	}
 
-	return TRUE;
+	return DIENUM_CONTINUE;
 }
 
-BOOL waveforms_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
+static BOOL CALLBACK waveforms_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 {
 	struct punknobs_haptics_waveforms* waveforms =
 		(struct punknobs_haptics_waveforms*) pvRef;
@@ -111,46 +108,46 @@ BOOL waveforms_callback(LPCDIEFFECTINFO pdei, LPVOID pvRef)
 		{
 			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SQUARE;
 			waveforms->count += 1;
-			return TRUE;
+			return DIENUM_CONTINUE;
 		}
 
 		if (IsEqualGUID(&(pdei->guid), &GUID_Triangle) == TRUE)
 		{
 			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE;
 			waveforms->count += 1;
-			return TRUE;
+			return DIENUM_CONTINUE;
 		}
 
 		if (IsEqualGUID(&(pdei->guid), &GUID_Sine) == TRUE)
 		{
 			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SINE;
 			waveforms->count += 1;
-			return TRUE;
+			return DIENUM_CONTINUE;
 		}
 
 		if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothUp) == TRUE)
 		{
 			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP;
 			waveforms->count += 1;
-			return TRUE;
+			return DIENUM_CONTINUE;
 		}
 
 		if (IsEqualGUID(&(pdei->guid), &GUID_SawtoothDown) == TRUE)
 		{
 			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN;
 			waveforms->count += 1;
-			return TRUE;
+			return DIENUM_CONTINUE;
 		}
 
 		if (IsEqualGUID(&(pdei->guid), &GUID_CustomForce) == TRUE)
 		{
 			waveforms->list[waveforms->count] = PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM;
 			waveforms->count += 1;
-			return TRUE;
+			return DIENUM_CONTINUE;
 		}
 	}
 
-	return TRUE;
+	return DIENUM_CONTINUE;
 }
 
 // main API
