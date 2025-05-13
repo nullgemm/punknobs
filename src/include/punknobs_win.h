@@ -120,6 +120,10 @@ void punknobs_win_set_delays(
 	struct punknobs_win_delays* delays,
 	struct punknobs_error_info* error);
 
+void punknobs_win_set_window(
+	struct punknobs* context,
+	void* window);
+
 enum punknobs_win_api punknobs_win_device_get_api(
 	struct punknobs* context,
 	void* device_info,

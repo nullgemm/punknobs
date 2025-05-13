@@ -11,6 +11,7 @@
 #include <process.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -183,6 +184,7 @@ void punknobs_win_init(
 	backend->new_enum_devices_xinput = NULL;
 	backend->ref_enum_devices_xinput = NULL;
 	backend->reg_devices_xinput = NULL;
+	backend->window = NULL;
 
 	// create reenumeration event
 	backend->reenumeration_handler =
@@ -615,10 +617,34 @@ void punknobs_win_register_add(
 			reg_device->effects[i] = NULL;
 		}
 
-		dinput_node->device->lpVtbl->SetCooperativeLevel(
+		HRESULT result = dinput_node->device->lpVtbl->SetCooperativeLevel(
 			dinput_node->device,
-			GetActiveWindow(),
-			DISCL_BACKGROUND | DISCL_EXCLUSIVE);
+			backend->window,
+			DISCL_EXCLUSIVE);
+
+		switch (result)
+		{
+			case DIERR_INVALIDPARAM:
+			{
+				printf("INVALIDPARAM\n");
+				break;
+			}
+			case DIERR_NOTINITIALIZED:
+			{
+				printf("NOTINITIALIZED\n");
+				break;
+			}
+			case E_HANDLE:
+			{
+				printf("E_HANDLE\n");
+				break;
+			}
+			default:
+			{
+				printf("OK\n");
+				break;
+			}
+		}
 
 		dinput_node->device->lpVtbl->SetDataFormat(
 			dinput_node->device, &c_dfDIJoystick);
@@ -1528,26 +1554,38 @@ int punknobs_win_haptics_effect_set(
 			}
 		}
 
+DWORD    dwAxes[2] = { DIJOFS_X, DIJOFS_Y };
+LONG     lDirection[2] = { 18000, 0 };
+
 		// TODO support conditions with buttons etc. (objectids map, see IDirectInputDevice8::EnumObjects)
 		DIEFFECT config =
 		{
 			.dwSize = sizeof (DIEFFECT),
-			.dwFlags = DIEFF_CARTESIAN | DIEFF_OBJECTIDS,
-			.dwDuration = INFINITE,
+			//.dwFlags = DIEFF_CARTESIAN | DIEFF_OBJECTIDS,
+			.dwFlags         = DIEFF_POLAR | DIEFF_OBJECTOFFSETS,
+			//.dwDuration = INFINITE,
+			.dwDuration      = (DWORD)(0.5 * DI_SECONDS),
 			.dwSamplePeriod = 0,
-			.dwGain = 0,
-			.dwTriggerButton = effect->trigger.button,
-			.dwTriggerRepeatInterval = effect->trigger.interval * 1000,
+			//.dwGain = 0,
+			.dwGain          = DI_FFNOMINALMAX,   // No scaling
+			//.dwTriggerButton = effect->trigger.button,
+			.dwTriggerButton = DIEB_NOTRIGGER,    // Not a button response
+			//.dwTriggerRepeatInterval = effect->trigger.interval * 1000,
+			.dwTriggerRepeatInterval = 0,         // Not applicable
 			.cAxes = axes,
-			.rgdwAxes = axes_ids,
-			.rglDirection = directions,
+			//.rgdwAxes = axes_ids,
+			//.rglDirection = directions,
+			.rgdwAxes                = &dwAxes[0],
+			.rglDirection            = &lDirection[0],
 			.lpEnvelope = &envelope,
 			.cbTypeSpecificParams = params_size,
 			.lpvTypeSpecificParams = params,
 			.dwStartDelay = 0,
 		};
 
-		HRESULT result =
+		HRESULT result;
+
+		result =
 			dinput_node->device->lpVtbl->CreateEffect(
 				dinput_node->device,
 				&type,
@@ -1561,6 +1599,36 @@ int punknobs_win_haptics_effect_set(
 				context,
 				error,
 				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_CREATE);
+
+			switch (result)
+			{
+				case DIERR_DEVICEFULL:
+				{
+					printf("DEVICEFULL\n");
+					break;
+				}
+				case DIERR_DEVICENOTREG:
+				{
+					printf("DEVICENOTREG\n");
+					break;
+				}
+				case DIERR_INVALIDPARAM:
+				{
+					printf("INVALIDPARAM\n");
+					break;
+				}
+				case DIERR_NOTINITIALIZED:
+				{
+					printf("NOTINITIALIZED\n");
+					break;
+				}
+				default:
+				{
+					printf("DINPUT SHIT %ld\n", result);
+					break;
+				}
+			}
+
 			return -1;
 		}
 
@@ -1984,6 +2052,38 @@ void punknobs_win_haptics_effect_play(
 
 		if (result != DI_OK)
 		{
+			switch(result)
+			{
+				case DIERR_INCOMPLETEEFFECT:
+				{
+					printf("DIERR_INCOMPLETEEFFECT\n");
+					break;
+				}
+				case DIERR_INVALIDPARAM:
+				{
+					printf("DIERR_INVALIDPARAM\n");
+					break;
+				}
+				case DIERR_NOTEXCLUSIVEACQUIRED:
+				{
+					printf("DIERR_NOTEXCLUSIVEACQUIRED\n");
+					break;
+				}
+				case DIERR_NOTINITIALIZED:
+				{
+					printf("DIERR_NOTINITIALIZED\n");
+					break;
+				}
+				case DIERR_UNSUPPORTED:
+				{
+					printf("DIERR_UNSUPPORTED\n");
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
 			punknobs_error_throw(
 				context,
 				error,
@@ -2430,6 +2530,14 @@ void punknobs_win_set_delays(
 
 	// all good
 	punknobs_error_ok(error);
+}
+
+void punknobs_win_set_window(
+	struct punknobs* context,
+	void* window)
+{
+	struct win_backend* backend = context->backend_context;
+	backend->window = (HWND) window;
 }
 
 enum punknobs_win_api punknobs_win_device_get_api(

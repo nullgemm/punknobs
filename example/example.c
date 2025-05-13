@@ -255,6 +255,7 @@ static void devices_callback(
 
 			printf("maximum supported effects: %d\n", effects_max);
 
+#if 1
 			// set rumble effect
 			if (effects_max > 0)
 			{
@@ -294,7 +295,9 @@ static void devices_callback(
 					return;
 				}
 			}
+#endif
 
+#if 1
 			if ((effects_max > 1) && (periodic == true))
 			{
 				// save effects
@@ -343,6 +346,7 @@ static void devices_callback(
 					return;
 				}
 			}
+#endif
 
 			// add the device id to the save
 			if (data->ids_count >= data->ids_max)
@@ -486,8 +490,9 @@ static void inputs_callback(
 	switch (code)
 	{
 		//case 10:
-		case 13:
-		case 304:
+		case 12:
+		//case 13:
+		//case 304:
 		{
 			if (value != 0)
 			{
@@ -507,8 +512,9 @@ static void inputs_callback(
 			break;
 		}
 		//case 11:
-		case 14:
-		case 305:
+		case 13:
+		//case 14:
+		//case 305:
 		{
 			if (value != 0)
 			{

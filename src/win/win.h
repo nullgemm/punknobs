@@ -103,6 +103,7 @@ struct win_backend
 	IDirectInput8* dinput;
 	HINSTANCE win_module;
 	HANDLE reenumeration_handler;
+	HWND window;
 
 	// new list of dinput enumerated devices
 	struct win_device_enum_node_dinput* new_enum_devices_dinput;
