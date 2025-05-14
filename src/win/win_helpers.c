@@ -9,7 +9,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 #define PUNKNOBS_XUSB_HARDWARE_NAME "XUSB Controller"
 

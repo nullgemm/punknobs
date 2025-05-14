@@ -11,7 +11,6 @@
 #include <process.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -620,39 +619,10 @@ void punknobs_win_register_add(
 		dinput_node->device->lpVtbl->SetDataFormat(
 			dinput_node->device, &c_dfDIJoystick);
 
-		HRESULT result = dinput_node->device->lpVtbl->SetCooperativeLevel(
+		dinput_node->device->lpVtbl->SetCooperativeLevel(
 			dinput_node->device,
 			backend->window,
 			DISCL_EXCLUSIVE | DISCL_BACKGROUND);
-
-		if (FAILED(result))
-		{
-			printf("%p %ld\n", (void*) backend->window, result);
-		}
-
-		switch (result)
-		{
-			case DIERR_INVALIDPARAM:
-			{
-				printf("INVALIDPARAM\n");
-				break;
-			}
-			case DIERR_NOTINITIALIZED:
-			{
-				printf("NOTINITIALIZED\n");
-				break;
-			}
-			case E_HANDLE:
-			{
-				printf("E_HANDLE\n");
-				break;
-			}
-			default:
-			{
-				printf("OK\n");
-				break;
-			}
-		}
 
 		dinput_node->device->lpVtbl->Acquire(
 			dinput_node->device);
@@ -1594,36 +1564,6 @@ int punknobs_win_haptics_effect_set(
 				context,
 				error,
 				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_CREATE);
-
-			switch (result)
-			{
-				case DIERR_DEVICEFULL:
-				{
-					printf("DEVICEFULL\n");
-					break;
-				}
-				case DIERR_DEVICENOTREG:
-				{
-					printf("DEVICENOTREG\n");
-					break;
-				}
-				case DIERR_INVALIDPARAM:
-				{
-					printf("INVALIDPARAM\n");
-					break;
-				}
-				case DIERR_NOTINITIALIZED:
-				{
-					printf("NOTINITIALIZED\n");
-					break;
-				}
-				default:
-				{
-					printf("DINPUT SHIT %ld\n", result);
-					break;
-				}
-			}
-
 			return -1;
 		}
 
@@ -2047,38 +1987,6 @@ void punknobs_win_haptics_effect_play(
 
 		if (result != DI_OK)
 		{
-			switch(result)
-			{
-				case DIERR_INCOMPLETEEFFECT:
-				{
-					printf("DIERR_INCOMPLETEEFFECT\n");
-					break;
-				}
-				case DIERR_INVALIDPARAM:
-				{
-					printf("DIERR_INVALIDPARAM\n");
-					break;
-				}
-				case DIERR_NOTEXCLUSIVEACQUIRED:
-				{
-					printf("DIERR_NOTEXCLUSIVEACQUIRED\n");
-					break;
-				}
-				case DIERR_NOTINITIALIZED:
-				{
-					printf("DIERR_NOTINITIALIZED\n");
-					break;
-				}
-				case DIERR_UNSUPPORTED:
-				{
-					printf("DIERR_UNSUPPORTED\n");
-					break;
-				}
-				default:
-				{
-					break;
-				}
-			}
 			punknobs_error_throw(
 				context,
 				error,
