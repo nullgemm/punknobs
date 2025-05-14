@@ -1380,7 +1380,7 @@ int punknobs_win_haptics_effect_set(
 		// TODO support axes (objectids map, see IDirectInputDevice8::EnumObjects)
 		DWORD axes = 2;
 		DWORD axes_ids[2] = {DIJOFS_X, DIJOFS_Y};
-		LONG directions[2] = {effect->direction, effect->direction};
+		LONG directions[2] = {0, 0};
 
 		switch (effect->type)
 		{
