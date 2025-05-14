@@ -20,3 +20,4 @@ punknobs_prepare_init_win
 punknobs_win_set_delays
 punknobs_win_device_get_api
 punknobs_win_input_get_api
+punknobs_win_set_window

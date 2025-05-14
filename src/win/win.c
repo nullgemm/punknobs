@@ -617,10 +617,18 @@ void punknobs_win_register_add(
 			reg_device->effects[i] = NULL;
 		}
 
+		dinput_node->device->lpVtbl->SetDataFormat(
+			dinput_node->device, &c_dfDIJoystick);
+
 		HRESULT result = dinput_node->device->lpVtbl->SetCooperativeLevel(
 			dinput_node->device,
 			backend->window,
-			DISCL_EXCLUSIVE);
+			DISCL_EXCLUSIVE | DISCL_BACKGROUND);
+
+		if (FAILED(result))
+		{
+			printf("%p %ld\n", (void*) backend->window, result);
+		}
 
 		switch (result)
 		{
@@ -645,9 +653,6 @@ void punknobs_win_register_add(
 				break;
 			}
 		}
-
-		dinput_node->device->lpVtbl->SetDataFormat(
-			dinput_node->device, &c_dfDIJoystick);
 
 		dinput_node->device->lpVtbl->Acquire(
 			dinput_node->device);
@@ -1374,7 +1379,7 @@ int punknobs_win_haptics_effect_set(
 
 		// TODO support axes (objectids map, see IDirectInputDevice8::EnumObjects)
 		DWORD axes = 2;
-		DWORD axes_ids[2] = {0, 0};
+		DWORD axes_ids[2] = {DIJOFS_X, DIJOFS_Y};
 		LONG directions[2] = {effect->direction, effect->direction};
 
 		switch (effect->type)
@@ -1554,29 +1559,19 @@ int punknobs_win_haptics_effect_set(
 			}
 		}
 
-DWORD    dwAxes[2] = { DIJOFS_X, DIJOFS_Y };
-LONG     lDirection[2] = { 18000, 0 };
-
 		// TODO support conditions with buttons etc. (objectids map, see IDirectInputDevice8::EnumObjects)
 		DIEFFECT config =
 		{
 			.dwSize = sizeof (DIEFFECT),
-			//.dwFlags = DIEFF_CARTESIAN | DIEFF_OBJECTIDS,
-			.dwFlags         = DIEFF_POLAR | DIEFF_OBJECTOFFSETS,
-			//.dwDuration = INFINITE,
-			.dwDuration      = (DWORD)(0.5 * DI_SECONDS),
+			.dwFlags = DIEFF_POLAR | DIEFF_OBJECTOFFSETS,
+			.dwDuration = INFINITE,
 			.dwSamplePeriod = 0,
-			//.dwGain = 0,
-			.dwGain          = DI_FFNOMINALMAX,   // No scaling
-			//.dwTriggerButton = effect->trigger.button,
-			.dwTriggerButton = DIEB_NOTRIGGER,    // Not a button response
-			//.dwTriggerRepeatInterval = effect->trigger.interval * 1000,
-			.dwTriggerRepeatInterval = 0,         // Not applicable
+			.dwGain = DI_FFNOMINALMAX,
+			.dwTriggerButton = DIEB_NOTRIGGER,
+			.dwTriggerRepeatInterval = 0,
 			.cAxes = axes,
-			//.rgdwAxes = axes_ids,
-			//.rglDirection = directions,
-			.rgdwAxes                = &dwAxes[0],
-			.rglDirection            = &lDirection[0],
+			.rgdwAxes = axes_ids,
+			.rglDirection = directions,
 			.lpEnvelope = &envelope,
 			.cbTypeSpecificParams = params_size,
 			.lpvTypeSpecificParams = params,

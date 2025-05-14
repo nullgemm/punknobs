@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #define PUNKNOBS_XUSB_HARDWARE_NAME "XUSB Controller"
 
@@ -374,8 +375,10 @@ unsigned __stdcall device_loop(void* data)
 				// release device if it was registered
 				if (registered == true)
 				{
+#if 0
 					ref_ptr->device->lpVtbl->Unacquire(ref_ptr->device);
 					ref_ptr->device->lpVtbl->Release(ref_ptr->device);
+#endif
 				}
 
 				// continue even in case of error
@@ -444,8 +447,10 @@ unsigned __stdcall device_loop(void* data)
 				device,
 				&c_dfDIJoystick);
 
+#if 0
 			device->lpVtbl->Acquire(
 				device);
+#endif
 
 			// set node info
 			new_part->device = device;
@@ -561,12 +566,15 @@ unsigned __stdcall device_loop(void* data)
 				&info,
 				error);
 
+#if 0
+			device->lpVtbl->Unacquire(device);
+
 			// if the device was registered, do not release device
 			if (new_part->reg_entry == NULL)
 			{
-				device->lpVtbl->Unacquire(device);
 				device->lpVtbl->Release(device);
 			}
+#endif
 
 			// continue even in case of error
 			if (punknobs_error_get_code(error) != PUNKNOBS_ERROR_OK)
