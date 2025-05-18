@@ -1534,7 +1534,7 @@ int punknobs_win_haptics_effect_set(
 		{
 			.dwSize = sizeof (DIEFFECT),
 			.dwFlags = DIEFF_POLAR | DIEFF_OBJECTOFFSETS,
-			.dwDuration = INFINITE,
+			.dwDuration = effect->replay.length,
 			.dwSamplePeriod = 0,
 			.dwGain = DI_FFNOMINALMAX,
 			.dwTriggerButton = DIEB_NOTRIGGER,
@@ -1548,23 +1548,41 @@ int punknobs_win_haptics_effect_set(
 			.dwStartDelay = 0,
 		};
 
-		HRESULT result;
-
-		result =
-			dinput_node->device->lpVtbl->CreateEffect(
-				dinput_node->device,
-				&type,
-				&config,
-				&(dinput_reg_node->effects[slot]),
-				NULL);
-
-		if (result != DI_OK)
+		if (dinput_reg_node->effects[slot] != NULL)
 		{
-			punknobs_error_throw(
-				context,
-				error,
-				PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_CREATE);
-			return -1;
+			dinput_reg_node->effects[slot]->lpVtbl->SetParameters(
+				dinput_reg_node->effects[slot],
+				&config,
+				//DIEP_AXES
+				//| DIEP_DIRECTION
+				DIEP_DURATION);
+				//| DIEP_ENVELOPE
+				//| DIEP_GAIN
+				//| DIEP_SAMPLEPERIOD
+				//| DIEP_START
+				//| DIEP_STARTDELAY
+				//| DIEP_TRIGGERBUTTON
+				//| DIEP_TRIGGERREPEATINTERVAL
+				//| DIEP_TYPESPECIFICPARAMS);
+		}
+		else
+		{
+			HRESULT result =
+				dinput_node->device->lpVtbl->CreateEffect(
+					dinput_node->device,
+					&type,
+					&config,
+					&(dinput_reg_node->effects[slot]),
+					NULL);
+
+			if (result != DI_OK)
+			{
+				punknobs_error_throw(
+					context,
+					error,
+					PUNKNOBS_ERROR_BACKEND_WIN_EFFECT_CREATE);
+				return -1;
+			}
 		}
 
 		// unlock mutex
@@ -1982,8 +2000,8 @@ void punknobs_win_haptics_effect_play(
 		HRESULT result =
 			dinput_reg_node->effects[slot]->lpVtbl->Start(
 				dinput_reg_node->effects[slot],
-				INFINITE,
-				DIES_NODOWNLOAD);
+				1,
+				0);//DIES_NODOWNLOAD);
 
 		if (result != DI_OK)
 		{
