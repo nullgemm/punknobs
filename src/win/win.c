@@ -1534,7 +1534,7 @@ int punknobs_win_haptics_effect_set(
 		{
 			.dwSize = sizeof (DIEFFECT),
 			.dwFlags = DIEFF_POLAR | DIEFF_OBJECTOFFSETS,
-			.dwDuration = effect->replay.length,
+			.dwDuration = effect->replay.length * 1000,
 			.dwSamplePeriod = 0,
 			.dwGain = DI_FFNOMINALMAX,
 			.dwTriggerButton = DIEB_NOTRIGGER,
