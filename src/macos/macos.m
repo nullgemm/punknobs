@@ -453,70 +453,59 @@ int punknobs_macos_haptics_effect_max(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
-	int error_posix = 0;
-	int max = 0;
+	HRESULT error_ff = FF_OK;
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+	// get service id from IOHIDDevice
+	io_service_t service = IOHIDDeviceGetService((IOHIDDeviceRef) id);
 
-	if (error_posix != 0)
+	if (service == MACH_PORT_NULL)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
-		return 0;
+			PUNKNOBS_ERROR_MACOS_IOSERVICE);
+		return;
 	}
 
-	// find ptr for given device fd
-	struct evdev_epoll_info* input_loop_fds = backend->input_loop_fds->next;
+	// create FFDeviceObject from service id
+	FFDeviceObjectReference device;
+	error_ff = FFCreateDevice(service, &device);
 
-	while (input_loop_fds != NULL)
-	{
-		if (((intptr_t) input_loop_fds) == id)
-		{
-			break;
-		}
-
-		input_loop_fds = input_loop_fds->next;
-	}
-
-	if (input_loop_fds == NULL)
-	{
-		pthread_mutex_unlock(&(backend->mutex_main));
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_DOMAIN);
-		return 0;
-	}
-
-	// get max
-	error_posix =
-		ioctl(
-			input_loop_fds->device_fd,
-			EVIOCGEFFECTS,
-			&max);
-
-	if (error_posix == -1)
+	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_EFFECTS_MAX);
-		return 0;
+			PUNKNOBS_ERROR_MACOS_FFCREATEDEVICE);
+		return;
 	}
 
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+	// get features
+	FFCAPABILITIES ff_features;
+	error_ff = FFDeviceGetForceFeedbackCapabilities(device, &ff_features);
 
-	if (error_posix != 0)
+	if (error_ff != FF_OK)
+	{
+		FFReleaseDevice(device);
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_MACOS_FFGETCAPABILITIES);
+		return;
+	}
+
+	int max = ff_features.storageCapacity;
+
+	// release force feedback device
+	error_ff = FFReleaseDevice(device);
+
+	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
-		return 0;
+			PUNKNOBS_ERROR_MACOS_FFRELEASEDEVICE);
+		return;
 	}
 
 	// all good
