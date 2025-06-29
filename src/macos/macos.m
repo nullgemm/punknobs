@@ -13,6 +13,26 @@
 #import <IOHIDDevice.h>
 #import <IOHIDManager.h>
 
+uint32_t lut_features[PUNKNOBS_HAPTICS_FEATURE_COUNT] =
+{
+	[PUNKNOBS_HAPTICS_FEATURE_CONSTANT] = FFCAP_ET_CONSTANTFORCE,
+	[PUNKNOBS_HAPTICS_FEATURE_SPRING] = FFCAP_ET_SPRING,
+	[PUNKNOBS_HAPTICS_FEATURE_FRICTION] = FFCAP_ET_FRICTION,
+	[PUNKNOBS_HAPTICS_FEATURE_DAMPER] = FFCAP_ET_DAMPER,
+	[PUNKNOBS_HAPTICS_FEATURE_INERTIA] = FFCAP_ET_INERTIA,
+	[PUNKNOBS_HAPTICS_FEATURE_RAMP] = FFCAP_ET_RAMPFORCE,
+};
+
+uint32_t lut_waveforms[PUNKNOBS_HAPTICS_WAVEFORM_COUNT] =
+{
+	[PUNKNOBS_HAPTICS_WAVEFORM_SQUARE] = FFCAP_ET_SQUARE,
+	[PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE] = FFCAP_ET_TRIANGLE,
+	[PUNKNOBS_HAPTICS_WAVEFORM_SINE] = FFCAP_ET_SINE,
+	[PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP] = FFCAP_ET_SAWTOOTHUP,
+	[PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN] = FFCAP_ET_SAWTOOTHDOWN,
+	[PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM] = FFCAP_ET_CUSTOMFORCE,
+};
+
 // main API
 void punknobs_macos_init(
 	struct punknobs* context,
@@ -204,26 +224,44 @@ void punknobs_macos_haptics_get_features(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
-	HRESULT ok = FFCreateDevice();
+	HRESULT error_ff = FF_OK;
 
+	// get service id from IOHIDDevice
+	io_service_t service = IOHIDDeviceGetService((IOHIDDeviceRef) id);
 
-
-
-	// get features
-	unsigned long ff_features[BITS_TO_LONGS(FF_CNT)];
-
-	error_posix =
-		ioctl(
-			input_loop_fds->device_fd,
-			EVIOCGBIT(EV_FF, BITS_TO_LONG_BYTES(FF_CNT)),
-			ff_features);
-
-	if (error_posix == -1)
+	if (service == MACH_PORT_NULL)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_FEATURES);
+			PUNKNOBS_ERROR_MACOS_IOSERVICE);
+		return;
+	}
+
+	// create FFDeviceObject from service id
+	FFDeviceObjectReference device;
+	error_ff = FFCreateDevice(service, &device);
+
+	if (error_ff != FF_OK)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_MACOS_FFCREATEDEVICE);
+		return;
+	}
+
+	// get features
+	FFCAPABILITIES ff_features;
+	error_ff = FFDeviceGetForceFeedbackCapabilities(device, &ff_features);
+
+	if (error_ff != FF_OK)
+	{
+		FFReleaseDevice(device);
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_MACOS_FFGETCAPABILITIES);
 		return;
 	}
 
@@ -235,37 +273,83 @@ void punknobs_macos_haptics_get_features(
 
 	if (features->list == NULL)
 	{
+		FFReleaseDevice(device);
 		punknobs_error_throw(context, error, PUNKNOBS_ERROR_ALLOC);
 		return;
 	}
 
-	// process features list
-	int ff_value;
+	// process direct features list
 	size_t count = 0;
-	unsigned char* ff_bytes = (unsigned char*) ff_features;
 
 	for (int i = 0; i < PUNKNOBS_HAPTICS_FEATURE_COUNT; ++i)
 	{
-		ff_value = lut_features[i];
-
-		if ((ff_bytes[ff_value / 8] & (1 << (ff_value % 8))) != 0)
+		if (ff_features.supportedEffects & lut_features[i])
 		{
 			features->list[count] = i;
 			++count;
 		}
 	}
 
+	// check rumble/periodic
+	int i = 0;
+
+	while (i < PUNKNOBS_HAPTICS_WAVEFORM_COUNT)
+	{
+		if (ff_features.supportedEffects & lut_waveforms[i])
+		{
+			features->list[count] = PUNKNOBS_HAPTICS_FEATURE_RUMBLE;
+			++count;
+
+			features->list[count] = PUNKNOBS_HAPTICS_FEATURE_PERIODIC;
+			++count;
+
+			break;
+		}
+
+		++i;
+	}
+
+	// check gain/autocenter
+	uint32_t value;
+
+	error_ff =
+		FFDeviceGetForceFeedbackProperty(
+			device,
+			FFPROP_FFGAIN,
+			&value,
+			sizeof(value));
+
+	if (error_ff == FF_OK)
+	{
+		features->list[count] = PUNKNOBS_HAPTICS_FEATURE_GAIN;
+		++count;
+	}
+
+	error_ff =
+		FFDeviceGetForceFeedbackProperty(
+			device,
+			FFPROP_AUTOCENTER,
+			&value,
+			sizeof(value));
+
+	if (error_ff == FF_OK)
+	{
+		features->list[count] = PUNKNOBS_HAPTICS_FEATURE_AUTOCENTER;
+		++count;
+	}
+
+	// set final feature count
 	features->count = count;
 
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+	// release force feedback device
+	error_ff = FFReleaseDevice(device);
 
-	if (error_posix != 0)
+	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_MACOS_FFRELEASEDEVICE);
 		return;
 	}
 
@@ -280,58 +364,44 @@ void punknobs_macos_haptics_get_waveforms(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
-	int error_posix = 0;
+	HRESULT error_ff = FF_OK;
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+	// get service id from IOHIDDevice
+	io_service_t service = IOHIDDeviceGetService((IOHIDDeviceRef) id);
 
-	if (error_posix != 0)
+	if (service == MACH_PORT_NULL)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+			PUNKNOBS_ERROR_MACOS_IOSERVICE);
 		return;
 	}
 
-	// find ptr for given device fd
-	struct evdev_epoll_info* input_loop_fds = backend->input_loop_fds->next;
+	// create FFDeviceObject from service id
+	FFDeviceObjectReference device;
+	error_ff = FFCreateDevice(service, &device);
 
-	while (input_loop_fds != NULL)
+	if (error_ff != FF_OK)
 	{
-		if (((intptr_t) input_loop_fds) == id)
-		{
-			break;
-		}
-
-		input_loop_fds = input_loop_fds->next;
-	}
-
-	if (input_loop_fds == NULL)
-	{
-		pthread_mutex_unlock(&(backend->mutex_main));
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_DOMAIN);
+			PUNKNOBS_ERROR_MACOS_FFCREATEDEVICE);
 		return;
 	}
 
 	// get features
-	unsigned long ff_features[BITS_TO_LONGS(FF_CNT)];
+	FFCAPABILITIES ff_features;
+	error_ff = FFDeviceGetForceFeedbackCapabilities(device, &ff_features);
 
-	error_posix =
-		ioctl(
-			input_loop_fds->device_fd,
-			EVIOCGBIT(EV_FF, BITS_TO_LONG_BYTES(FF_CNT)),
-			ff_features);
-
-	if (error_posix == -1)
+	if (error_ff != FF_OK)
 	{
+		FFReleaseDevice(device);
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_WAVEFORMS);
+			PUNKNOBS_ERROR_MACOS_FFGETCAPABILITIES);
 		return;
 	}
 
@@ -348,15 +418,11 @@ void punknobs_macos_haptics_get_waveforms(
 	}
 
 	// process features list
-	int ff_value;
 	size_t count = 0;
-	unsigned char* ff_bytes = (unsigned char*) ff_features;
 
 	for (int i = 0; i < PUNKNOBS_HAPTICS_WAVEFORM_COUNT; ++i)
 	{
-		ff_value = lut_waveforms[i];
-
-		if ((ff_bytes[ff_value / 8] & (1 << (ff_value % 8))) != 0)
+		if (ff_features.supportedEffects & lut_waveforms[i])
 		{
 			waveforms->list[count] = i;
 			++count;
@@ -365,15 +431,15 @@ void punknobs_macos_haptics_get_waveforms(
 
 	waveforms->count = count;
 
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+	// release force feedback device
+	error_ff = FFReleaseDevice(device);
 
-	if (error_posix != 0)
+	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_MACOS_FFRELEASEDEVICE);
 		return;
 	}
 
