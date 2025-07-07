@@ -122,6 +122,7 @@ void punknobs_macos_register_add(
 {
 	struct macos_backend* backend = context->backend_context;
 	struct macos_device_node* device = backend->devices;
+	HRESULT error_ff = FF_OK;
 
 	while (device != NULL)
 	{
@@ -136,6 +137,71 @@ void punknobs_macos_register_add(
 
 			device->info.registered = true;
 
+			// get service id from IOHIDDevice
+			device->info.ff_service =
+				IOHIDDeviceGetService((IOHIDDeviceRef) id);
+
+			if (service == MACH_PORT_NULL)
+			{
+				punknobs_error_throw(
+					context,
+					error,
+					PUNKNOBS_ERROR_MACOS_IOSERVICE);
+				return;
+			}
+
+			// create FFDeviceObject from service id
+			error_ff =
+				FFCreateDevice(
+					device->info.ff_service,
+					&(device->info.ff_device));
+
+			if (error_ff != FF_OK)
+			{
+				punknobs_error_throw(
+					context,
+					error,
+					PUNKNOBS_ERROR_MACOS_FFCREATEDEVICE);
+				return;
+			}
+
+			// get features
+			FFCAPABILITIES ff_features;
+
+			error_ff =
+				FFDeviceGetForceFeedbackCapabilities(
+					device->info.ff_device,
+					&ff_features);
+
+			if (error_ff != FF_OK)
+			{
+				FFReleaseDevice(device);
+				punknobs_error_throw(
+					context,
+					error,
+					PUNKNOBS_ERROR_MACOS_FFGETCAPABILITIES);
+				return;
+			}
+
+			// allocate effects array
+			device->info.ff_effect_objs =
+				malloc(
+					ff_features.storageCapacity
+					* (sizeof (FFEffectObjectReference)));
+
+			if (device->info.ff_effect_objs == NULL)
+			{
+				FFReleaseDevice(device);
+				punknobs_error_throw(
+					context,
+					error,
+					PUNKNOBS_ERROR_ALLOC);
+				return;
+			}
+
+			// set critical force feedback info
+			device->info.ff_effects_max = ff_features.storageCapacity;
+			device->info.ff_available = true;
 			break;
 		}
 
@@ -153,12 +219,32 @@ void punknobs_macos_register_del(
 {
 	struct macos_backend* backend = context->backend_context;
 	struct macos_device_node* device = backend->devices;
+	HRESULT error_ff = FF_OK;
 
 	while (device != NULL)
 	{
 		if ((device->info.punknobs_id == id)
 		&& (device->info.registered == true))
 		{
+			if (device->info.ff_available == true)
+			{
+				// release force feedback device
+				FFReleaseDevice(device->info.ff_device);
+
+				// free effects array
+				if (device->info.ff_effect_objs == NULL)
+				{
+					free(device->info.ff_effect_objs);
+				}
+
+				// reset force feedback service
+				device->info.ff_service = MACH_PORT_NULL;
+				device->info.ff_effects_max = 0;
+				device->info.ff_effect_objs = NULL;
+				device->info.ff_available = false;
+			}
+
+			// unregister input device callback
 			IOHIDDeviceRegisterInputValueCallback(
 				(IOHIDDeviceRef) id,
 				NULL,
@@ -520,102 +606,115 @@ int punknobs_macos_haptics_effect_set(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
-	int error_posix = 0;
+	HRESULT error_ff = FF_OK;
 
-	// create evdev effect 
-	struct ff_effect ffe =
+	// get service id from IOHIDDevice
+	io_service_t service = IOHIDDeviceGetService((IOHIDDeviceRef) id);
+
+	if (service == MACH_PORT_NULL)
 	{
-		.type = lut_features[effect->type],
-		.id = -1,
-		.direction = effect->direction,
-		.trigger =
-		{
-			.button = effect->trigger.button,
-			.interval = effect->trigger.interval,
-		},
-		.replay =
-		{
-			.length = effect->replay.length,
-			.delay = effect->replay.delay,
-		},
-	};
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_MACOS_IOSERVICE);
+		return -1;
+	}
+
+	// create FFDeviceObject from service id
+	FFDeviceObjectReference device;
+	error_ff = FFCreateDevice(service, &device);
+
+	if (error_ff != FF_OK)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_MACOS_FFCREATEDEVICE);
+		return -1;
+	}
+
+	// create effect
+	CFUUIDRef uuid;
 
 	switch (effect->type)
 	{
 		case PUNKNOBS_HAPTICS_FEATURE_CONSTANT:
 		{
-			ffe.u.constant.level = effect->config.constant.level;
-
-			ffe.u.constant.envelope.attack_length =
-				effect->config.constant.envelope.attack_length;
-			ffe.u.constant.envelope.attack_level =
-				effect->config.constant.envelope.attack_level;
-			ffe.u.constant.envelope.fade_length =
-				effect->config.constant.envelope.fade_length;
-			ffe.u.constant.envelope.fade_level =
-				effect->config.constant.envelope.fade_level;
+			uuid = kFFEffectType_ConstantForce_ID;
 			break;
 		}
 		case PUNKNOBS_HAPTICS_FEATURE_RAMP:
 		{
-			ffe.u.ramp.start_level = effect->config.ramp.start_level;
-			ffe.u.ramp.end_level = effect->config.ramp.end_level;
-
-			ffe.u.ramp.envelope.attack_length =
-				effect->config.ramp.envelope.attack_length;
-			ffe.u.ramp.envelope.attack_level =
-				effect->config.ramp.envelope.attack_level;
-			ffe.u.ramp.envelope.fade_length =
-				effect->config.ramp.envelope.fade_length;
-			ffe.u.ramp.envelope.fade_level =
-				effect->config.ramp.envelope.fade_level;
+			uuid = kFFEffectType_RampForce_ID;
 			break;
 		}
 		case PUNKNOBS_HAPTICS_FEATURE_PERIODIC:
 		{
-			ffe.u.periodic.waveform = lut_waveforms[effect->config.periodic.waveform];
-			ffe.u.periodic.period = effect->config.periodic.period;
-			ffe.u.periodic.magnitude = effect->config.periodic.magnitude;
-			ffe.u.periodic.offset = effect->config.periodic.offset;
-			ffe.u.periodic.phase = effect->config.periodic.phase;
-
-			ffe.u.periodic.custom_len = 0;
-			ffe.u.periodic.custom_data = NULL;
-
-			ffe.u.periodic.envelope.attack_length =
-				effect->config.periodic.envelope.attack_length;
-			ffe.u.periodic.envelope.attack_level =
-				effect->config.periodic.envelope.attack_level;
-			ffe.u.periodic.envelope.fade_length =
-				effect->config.periodic.envelope.fade_length;
-			ffe.u.periodic.envelope.fade_level =
-				effect->config.periodic.envelope.fade_level;
+			switch (effect->config.periodic.waveform)
+			{
+				case PUNKNOBS_HAPTICS_WAVEFORM_SQUARE:
+				{
+					uuid = kFFEffectType_Square_ID;
+					break;
+				}
+				case PUNKNOBS_HAPTICS_WAVEFORM_TRIANGLE:
+				{
+					uuid = kFFEffectType_Triangle_ID;
+					break;
+				}
+				case PUNKNOBS_HAPTICS_WAVEFORM_SINE:
+				{
+					uuid = kFFEffectType_Sine_ID;
+					break;
+				}
+				case PUNKNOBS_HAPTICS_WAVEFORM_SAW_UP:
+				{
+					uuid = kFFEffectType_SawtoothUp_ID;
+					break;
+				}
+				case PUNKNOBS_HAPTICS_WAVEFORM_SAW_DOWN:
+				{
+					uuid = kFFEffectType_SawtoothDown_ID;
+					break;
+				}
+				case PUNKNOBS_HAPTICS_WAVEFORM_CUSTOM:
+				{
+					uuid = kFFEffectType_CustomForce_ID;
+					break;
+				}
+				default:
+				{
+					punknobs_error_throw(
+						context,
+						error,
+						PUNKNOBS_ERROR_BACKEND_MACOS_WAVEFORM_TYPE);
+					return -1;
+				}
+			}
 			break;
 		}
 		case PUNKNOBS_HAPTICS_FEATURE_SPRING:
-		case PUNKNOBS_HAPTICS_FEATURE_FRICTION:
-		case PUNKNOBS_HAPTICS_FEATURE_DAMPER: // ???
-		case PUNKNOBS_HAPTICS_FEATURE_INERTIA: // ???
 		{
-			ffe.u.condition[0].right_saturation = effect->config.condition[0].right_saturation;
-			ffe.u.condition[0].left_saturation = effect->config.condition[0].left_saturation;
-			ffe.u.condition[0].right_coeff = effect->config.condition[0].right_coeff;
-			ffe.u.condition[0].left_coeff = effect->config.condition[0].left_coeff;
-			ffe.u.condition[0].deadband = effect->config.condition[0].deadband;
-			ffe.u.condition[0].center = effect->config.condition[0].center;
-
-			ffe.u.condition[1].right_saturation = effect->config.condition[1].right_saturation;
-			ffe.u.condition[1].left_saturation = effect->config.condition[1].left_saturation;
-			ffe.u.condition[1].right_coeff = effect->config.condition[1].right_coeff;
-			ffe.u.condition[1].left_coeff = effect->config.condition[1].left_coeff;
-			ffe.u.condition[1].deadband = effect->config.condition[1].deadband;
-			ffe.u.condition[1].center = effect->config.condition[1].center;
+			uuid = kFFEffectType_Spring_ID;
+			break;
+		}
+		case PUNKNOBS_HAPTICS_FEATURE_FRICTION:
+		{
+			uuid = kFFEffectType_Friction_ID;
+			break;
+		}
+		case PUNKNOBS_HAPTICS_FEATURE_DAMPER:
+		{
+			uuid = kFFEffectType_Damper_ID;
+			break;
+		}
+		case PUNKNOBS_HAPTICS_FEATURE_INERTIA:
+			uuid = kFFEffectType_Inertia_ID;
 			break;
 		}
 		case PUNKNOBS_HAPTICS_FEATURE_RUMBLE:
 		{
-			ffe.u.rumble.strong_magnitude = effect->config.rumble.strong_magnitude;
-			ffe.u.rumble.weak_magnitude = effect->config.rumble.weak_magnitude;
+			uuid = kFFEffectType_Sine_ID;
 			break;
 		}
 		default:
@@ -623,77 +722,72 @@ int punknobs_macos_haptics_effect_set(
 			punknobs_error_throw(
 				context,
 				error,
-				PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_TYPE);
+				PUNKNOBS_ERROR_BACKEND_MACOS_EFFECT_TYPE);
 			return -1;
 		}
 	}
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+	FFEFFECT effect =
+	{
+		.cAxes = ,
+		.cbTypeSpecificParams = ,
+		.dwDuration = ,
+		.dwFlags = ,
+		.dwGain = ,
+		.dwSamplePeriod = ,
+		.dwSize = ,
+		.dwStartDelay = ,
+		.dwTriggerButton = ,
+		.dwTriggerRepeatInterval = ,
+		.lpEnvelope = ,
+		.lpvTypeSpecificParams = ,
+		.rgdwAxes = ,
+		.rglDirection = ,
+	};
 
-	if (error_posix != 0)
+	//TODO add to linked list in device (this way the API still makes sense as the use *has* to be careful with the max effect count)
+	//TODO or malloc using max when the device is created, and malloc here to store the pointer in this array (so we can tell if some are NULL)
+	FFEffectObjectReference effect_obj;
+
+	error_ff = FFDeviceCreateEffect(device, uuid, &effect);
+
+	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
+			PUNKNOBS_ERROR_MACOS_FFDEVICECREATEEFFECT);
 		return -1;
 	}
 
-	// find ptr for given device fd
-	struct evdev_epoll_info* input_loop_fds = backend->input_loop_fds->next;
+	// upload effect
+	error_ff = FFEffectDownload(effect_obj);
 
-	while (input_loop_fds != NULL)
+	if (error_ff != FF_OK)
 	{
-		if (((intptr_t) input_loop_fds) == id)
-		{
-			break;
-		}
-
-		input_loop_fds = input_loop_fds->next;
-	}
-
-	if (input_loop_fds == NULL)
-	{
-		pthread_mutex_unlock(&(backend->mutex_main));
+		FFDeviceReleaseEffect(device, effect_obj);
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_DOMAIN);
+			PUNKNOBS_ERROR_MACOS_FFEFFECTDOWNLOAD);
 		return -1;
 	}
 
-	// set effect
-	error_posix =
-		ioctl(
-			input_loop_fds->device_fd,
-			EVIOCSFF,
-			&ffe);
+	// release force feedback device
+	error_ff = FFReleaseDevice(device);
 
-	if (error_posix == -1)
+	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_EFFECT_SET);
-		return -1;
-	}
-
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
-
-	if (error_posix != 0)
-	{
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_MACOS_FFRELEASEDEVICE);
 		return -1;
 	}
 
 	// all good
 	punknobs_error_ok(error);
-	return ffe.id;
+	return;
 }
 
 void punknobs_macos_haptics_effect_del(
@@ -703,69 +797,57 @@ void punknobs_macos_haptics_effect_del(
 	struct punknobs_error_info* error)
 {
 	struct macos_backend* backend = context->backend_context;
-	int error_posix = 0;
+	HRESULT error_ff = FF_OK;
 
-	// lock main mutex
-	error_posix = pthread_mutex_lock(&(backend->mutex_main));
+	// get service id from IOHIDDevice
+	io_service_t service = IOHIDDeviceGetService((IOHIDDeviceRef) id);
 
-	if (error_posix != 0)
+	if (service == MACH_PORT_NULL)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_LOCK);
-		return;
+			PUNKNOBS_ERROR_MACOS_IOSERVICE);
+		return -1;
 	}
 
-	// find ptr for given device fd
-	struct evdev_epoll_info* input_loop_fds = backend->input_loop_fds->next;
+	// create FFDeviceObject from service id
+	FFDeviceObjectReference device;
+	error_ff = FFCreateDevice(service, &device);
 
-	while (input_loop_fds != NULL)
-	{
-		if (((intptr_t) input_loop_fds) == id)
-		{
-			break;
-		}
-
-		input_loop_fds = input_loop_fds->next;
-	}
-
-	if (input_loop_fds == NULL)
-	{
-		pthread_mutex_unlock(&(backend->mutex_main));
-		punknobs_error_throw(
-			context,
-			error,
-			PUNKNOBS_ERROR_DOMAIN);
-		return;
-	}
-
-	// get max
-	error_posix =
-		ioctl(
-			input_loop_fds->device_fd,
-			EVIOCRMFF,
-			slot);
-
-	if (error_posix == -1)
+	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_BACKEND_EVDEV_EPOLL_IOCTL_EFFECTS_DEL);
-		return;
+			PUNKNOBS_ERROR_MACOS_FFCREATEDEVICE);
+		return -1;
 	}
 
-	// unlock main mutex
-	error_posix = pthread_mutex_unlock(&(backend->mutex_main));
+	// TODO
+	// release device effect
+	FFEffectObjectReference* effect_obj = ;
+	error_ff = FFDeviceReleaseEffect(device, *effect_obj);
 
-	if (error_posix != 0)
+	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_POSIX_MUTEX_UNLOCK);
+			PUNKNOBS_ERROR_MACOS_FFDEVICERELEASEEFFECT);
 		return;
+	}
+
+	// release force feedback device
+	error_ff = FFReleaseDevice(device);
+
+	if (error_ff != FF_OK)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_MACOS_FFRELEASEDEVICE);
+		return -1;
 	}
 
 	// all good

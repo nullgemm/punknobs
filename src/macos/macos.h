@@ -14,6 +14,13 @@ struct macos_device_info
 	unsigned product_id;
 	bool plugged;
 	bool registered;
+
+	// force feedback
+	int ff_effects_max;
+	io_service_t ff_service;
+	FFDeviceObjectReference ff_device;
+	FFEffectObjectReference* ff_effect_objs;
+	bool ff_available;
 };
 
 struct macos_input_info

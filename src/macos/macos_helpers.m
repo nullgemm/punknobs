@@ -445,6 +445,9 @@ void macos_helper_device(
 		info.product_id = product;
 		info.plugged = plugged;
 		info.registered = false;
+		info.ff_effects_max = 0;
+		info.ff_service = MACH_PORT_NULL;
+		info.ff_available = false;
 
 		// save device in list
 		struct macos_device_node* device_node = malloc(sizeof (struct macos_device_node));
@@ -481,6 +484,9 @@ void macos_helper_device(
 				info.product_id = device_node->info.product_id;
 				info.plugged = false;
 				info.registered = device_node->info.registered;
+				info.ff_effects_max = device_node->info.ff_effects_max;
+				info.ff_service = device_node->info.ff_service;
+				info.ff_available = device_node->info.ff_available;
 
 				if (device_prev == device_node)
 				{
