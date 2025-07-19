@@ -16,16 +16,17 @@ struct macos_device_info
 	bool registered;
 
 	// force feedback
-	int ff_effects_max;
+	IOHIDDeviceRef device;
 	io_service_t ff_service;
 	FFDeviceObjectReference ff_device;
 	FFEffectObjectReference* ff_effect_objs;
+	int ff_effects_max;
 	bool ff_available;
 };
 
 struct macos_input_info
 {
-	intptr_t punknobs_id;
+	IOHIDDeviceRef device;
 	IOHIDValueRef input_value;
 };
 

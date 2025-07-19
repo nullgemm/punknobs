@@ -291,7 +291,7 @@ void macos_helper_input(
 		{
 			struct macos_input_info out =
 			{
-				.punknobs_id = (intptr_t) IOHIDElementGetDevice(element),
+				.device = IOHIDElementGetDevice(element),
 				.input_value = value,
 			};
 
@@ -437,18 +437,6 @@ void macos_helper_device(
 
 	if (plugged == true)
 	{
-		// run callback
-		info.punknobs_id = (intptr_t) device;
-		info.manufacturer_name = manufacturer_name;
-		info.product_name = product_name;
-		info.vendor_id = vendor;
-		info.product_id = product;
-		info.plugged = plugged;
-		info.registered = false;
-		info.ff_effects_max = 0;
-		info.ff_service = MACH_PORT_NULL;
-		info.ff_available = false;
-
 		// save device in list
 		struct macos_device_node* device_node = malloc(sizeof (struct macos_device_node));
 
@@ -461,6 +449,18 @@ void macos_helper_device(
 			return;
 		}
 
+		info.punknobs_id = (intptr_t) device_node;
+		info.manufacturer_name = manufacturer_name;
+		info.product_name = product_name;
+		info.vendor_id = vendor;
+		info.product_id = product;
+		info.plugged = plugged;
+		info.registered = false;
+		info.device = device;
+		info.ff_service = MACH_PORT_NULL;
+		info.ff_available = false;
+		info.ff_effects_max = 0;
+
 		device_node->info = info;
 		device_node->next = backend->devices;
 		backend->devices = device_node;
@@ -471,22 +471,40 @@ void macos_helper_device(
 		struct macos_device_node* device_prev = device_node;
 		struct macos_device_node* device_next = NULL;
 
+		// get device registry id
+		uint64_t device_id = 0;
+		kern_return_t error_kern = [device GetRegistryEntryID:&device_id];
+
+		if (error_kern != kIOReturnSuccess)
+		{
+			punknobs_error_throw(
+				context,
+				&error,
+				PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
+		// try to match registry id
 		while (device_node != NULL)
 		{
 			device_next = device_node->next;
 
-			if (device_node->info.punknobs_id == ((intptr_t) device))
+			uint64_t node_id = 0;
+			error_kern = [device_node->info.device GetRegistryEntryID:&node_id];
+
+			if ((error_kern == kIOReturnSuccess) && (device_id == node_id))
 			{
-				info.punknobs_id = (intptr_t) device;
+				info.punknobs_id = (intptr_t) device_node;
 				info.manufacturer_name = device_node->info.manufacturer_name;
 				info.product_name = device_node->info.product_name;
 				info.vendor_id = device_node->info.vendor_id;
 				info.product_id = device_node->info.product_id;
 				info.plugged = false;
 				info.registered = device_node->info.registered;
-				info.ff_effects_max = device_node->info.ff_effects_max;
+				info.device = device;
 				info.ff_service = device_node->info.ff_service;
 				info.ff_available = device_node->info.ff_available;
+				info.ff_effects_max = device_node->info.ff_effects_max;
 
 				if (device_prev == device_node)
 				{
@@ -498,7 +516,6 @@ void macos_helper_device(
 				}
 
 				free(device_node);
-
 				break;
 			}
 
