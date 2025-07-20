@@ -1,6 +1,7 @@
 #ifndef H_PUNKNOBS_BACKEND_MACOS
 #define H_PUNKNOBS_BACKEND_MACOS
 
+#import <ForceFeedback.h>
 #import <Foundation/Foundation.h>
 #import <IOHIDDevice.h>
 #import <IOHIDManager.h>

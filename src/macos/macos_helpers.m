@@ -472,8 +472,19 @@ void macos_helper_device(
 		struct macos_device_node* device_next = NULL;
 
 		// get device registry id
+		io_service_t service = IOHIDDeviceGetService(device);
+
+		if (service == MACH_PORT_NULL)
+		{
+			punknobs_error_throw(
+				context,
+				&error,
+				PUNKNOBS_ERROR_ALLOC);
+			return;
+		}
+
 		uint64_t device_id = 0;
-		kern_return_t error_kern = [device GetRegistryEntryID:&device_id];
+		kern_return_t error_kern = IORegistryEntryGetRegistryEntryID(service, &device_id);
 
 		if (error_kern != kIOReturnSuccess)
 		{
@@ -488,9 +499,19 @@ void macos_helper_device(
 		while (device_node != NULL)
 		{
 			device_next = device_node->next;
+			service = IOHIDDeviceGetService(device_node->info.device);
+
+			if (service == MACH_PORT_NULL)
+			{
+				punknobs_error_throw(
+					context,
+					&error,
+					PUNKNOBS_ERROR_ALLOC);
+				return;
+			}
 
 			uint64_t node_id = 0;
-			error_kern = [device_node->info.device GetRegistryEntryID:&node_id];
+			error_kern = IORegistryEntryGetRegistryEntryID(service, &node_id);
 
 			if ((error_kern == kIOReturnSuccess) && (device_id == node_id))
 			{

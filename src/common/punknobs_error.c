@@ -163,6 +163,22 @@ void punknobs_error_init(
 	// macos
 	log[PUNKNOBS_ERROR_BACKEND_MACOS_CSTRING] =
 		"could not convert string";
+	log[PUNKNOBS_ERROR_BACKEND_MACOS_IOSERVICE] = 
+		"could not get IOService";
+	log[PUNKNOBS_ERROR_BACKEND_MACOS_FFCREATEDEVICE] = 
+		"could not create FFDevice";
+	log[PUNKNOBS_ERROR_BACKEND_MACOS_FFGETCAPABILITIES] = 
+		"could not get FFCapabilities";
+	log[PUNKNOBS_ERROR_BACKEND_MACOS_EFFECT_TYPE] =
+		"could not get effect type";
+	log[PUNKNOBS_ERROR_BACKEND_MACOS_WAVEFORM_TYPE] =
+		"could not get waveform type";
+	log[PUNKNOBS_ERROR_BACKEND_MACOS_FFDEVICECREATEEFFECT] =
+		"could not create effect";
+	log[PUNKNOBS_ERROR_BACKEND_MACOS_FFEFFECTDOWNLOAD] =
+		"could not download effect";
+	log[PUNKNOBS_ERROR_BACKEND_MACOS_FFDEVICERELEASEEFFECT] =
+		"could not release effect";
 #endif
 }
 

@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #import <Foundation/Foundation.h>
+#import <ForceFeedback.h>
 #import <IOHIDDevice.h>
 #import <IOHIDManager.h>
 
@@ -140,12 +141,12 @@ void punknobs_macos_register_add(
 		device->info.ff_service =
 			IOHIDDeviceGetService(device->info.device);
 
-		if (service == MACH_PORT_NULL)
+		if (device->info.ff_service == MACH_PORT_NULL)
 		{
 			punknobs_error_throw(
 				context,
 				error,
-				PUNKNOBS_ERROR_MACOS_IOSERVICE);
+				PUNKNOBS_ERROR_BACKEND_MACOS_IOSERVICE);
 			return;
 		}
 
@@ -160,7 +161,7 @@ void punknobs_macos_register_add(
 			punknobs_error_throw(
 				context,
 				error,
-				PUNKNOBS_ERROR_MACOS_FFCREATEDEVICE);
+				PUNKNOBS_ERROR_BACKEND_MACOS_FFCREATEDEVICE);
 			return;
 		}
 
@@ -174,11 +175,11 @@ void punknobs_macos_register_add(
 
 		if (error_ff != FF_OK)
 		{
-			FFReleaseDevice(device);
+			FFReleaseDevice(device->info.ff_device);
 			punknobs_error_throw(
 				context,
 				error,
-				PUNKNOBS_ERROR_MACOS_FFGETCAPABILITIES);
+				PUNKNOBS_ERROR_BACKEND_MACOS_FFGETCAPABILITIES);
 			return;
 		}
 
@@ -190,7 +191,7 @@ void punknobs_macos_register_add(
 
 		if (device->info.ff_effect_objs == NULL)
 		{
-			FFReleaseDevice(device);
+			FFReleaseDevice(device->info.ff_device);
 			punknobs_error_throw(
 				context,
 				error,
@@ -201,7 +202,6 @@ void punknobs_macos_register_add(
 		// set critical force feedback info
 		device->info.ff_effects_max = ff_features.storageCapacity;
 		device->info.ff_available = true;
-		break;
 	}
 
 	// all good
@@ -217,7 +217,7 @@ void punknobs_macos_register_del(
 	struct macos_device_node* device = (struct macos_device_node*) id;
 	HRESULT error_ff = FF_OK;
 
-	if (device != NULL)
+	if ((device != NULL)
 	&& (device->info.punknobs_id == id)
 	&& (device->info.registered == true))
 	{
@@ -305,13 +305,13 @@ void punknobs_macos_haptics_get_features(
 
 	if ((node != NULL)
 	&& (node->info.punknobs_id == id)
-	&& (node->info.registered == true))
+	&& (node->info.registered == true)
 	&& (node->info.ff_available == true))
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_IOSERVICE);
+			PUNKNOBS_ERROR_BACKEND_MACOS_IOSERVICE);
 		return;
 	}
 
@@ -324,7 +324,7 @@ void punknobs_macos_haptics_get_features(
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_FFGETCAPABILITIES);
+			PUNKNOBS_ERROR_BACKEND_MACOS_FFGETCAPABILITIES);
 		return;
 	}
 
@@ -419,13 +419,13 @@ void punknobs_macos_haptics_get_waveforms(
 
 	if ((node != NULL)
 	&& (node->info.punknobs_id == id)
-	&& (node->info.registered == true))
+	&& (node->info.registered == true)
 	&& (node->info.ff_available == true))
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_IOSERVICE);
+			PUNKNOBS_ERROR_BACKEND_MACOS_IOSERVICE);
 		return;
 	}
 
@@ -438,7 +438,7 @@ void punknobs_macos_haptics_get_waveforms(
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_FFGETCAPABILITIES);
+			PUNKNOBS_ERROR_BACKEND_MACOS_FFGETCAPABILITIES);
 		return;
 	}
 
@@ -482,13 +482,13 @@ int punknobs_macos_haptics_effect_max(
 
 	if ((node != NULL)
 	&& (node->info.punknobs_id == id)
-	&& (node->info.registered == true))
+	&& (node->info.registered == true)
 	&& (node->info.ff_available == true))
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_IOSERVICE);
+			PUNKNOBS_ERROR_BACKEND_MACOS_IOSERVICE);
 		return 0;
 	}
 
@@ -518,13 +518,13 @@ int punknobs_macos_haptics_effect_set(
 
 	if ((node != NULL)
 	&& (node->info.punknobs_id == id)
-	&& (node->info.registered == true))
+	&& (node->info.registered == true)
 	&& (node->info.ff_available == true))
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_IOSERVICE);
+			PUNKNOBS_ERROR_BACKEND_MACOS_IOSERVICE);
 		return -1;
 	}
 
@@ -550,7 +550,7 @@ int punknobs_macos_haptics_effect_set(
 	};
 
 	FFENVELOPE ff_envelope;
-	FFCONSTANTFORCE ff_constant
+	FFCONSTANTFORCE ff_constant;
 	FFRAMPFORCE ff_ramp;
 	FFPERIODIC ff_periodic;
 
@@ -675,8 +675,8 @@ int punknobs_macos_haptics_effect_set(
 
 			ff_effect.dwFlags = FFEFF_POLAR | FFEFF_OBJECTOFFSETS;
 			ff_effect.cAxes = 2;
-			ff_effect.rgdwAxes = ff_axes,
-			ff_effect.rglDirection = ff_directions,
+			ff_effect.rgdwAxes = ff_axes;
+			ff_effect.rglDirection = ff_directions;
 
 			switch (effect->type)
 			{
@@ -747,7 +747,7 @@ int punknobs_macos_haptics_effect_set(
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_FFDEVICECREATEEFFECT);
+			PUNKNOBS_ERROR_BACKEND_MACOS_FFDEVICECREATEEFFECT);
 		return -1;
 	}
 
@@ -765,7 +765,7 @@ int punknobs_macos_haptics_effect_set(
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_FFEFFECTDOWNLOAD);
+			PUNKNOBS_ERROR_BACKEND_MACOS_FFEFFECTDOWNLOAD);
 		return -1;
 	}
 
@@ -785,15 +785,15 @@ void punknobs_macos_haptics_effect_del(
 	HRESULT error_ff = FF_OK;
 
 	// release device effect
-	FFEffectObjectReference* effect_obj = &(node->info.ff_effect_objs[effect->id]);
-	error_ff = FFDeviceReleaseEffect(device, *effect_obj);
+	FFEffectObjectReference* effect_obj = &(node->info.ff_effect_objs[slot]);
+	error_ff = FFDeviceReleaseEffect(node->info.ff_device, *effect_obj);
 
 	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_FFDEVICERELEASEEFFECT);
+			PUNKNOBS_ERROR_BACKEND_MACOS_FFDEVICERELEASEEFFECT);
 		return;
 	}
 
@@ -819,7 +819,7 @@ void punknobs_macos_haptics_gain_set(
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_FFDEVICERELEASEEFFECT);
+			PUNKNOBS_ERROR_BACKEND_MACOS_FFDEVICERELEASEEFFECT);
 		return;
 	}
 
@@ -845,7 +845,7 @@ void punknobs_macos_haptics_autocenter_set(
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_FFDEVICERELEASEEFFECT);
+			PUNKNOBS_ERROR_BACKEND_MACOS_FFDEVICERELEASEEFFECT);
 		return;
 	}
 
@@ -866,7 +866,7 @@ void punknobs_macos_haptics_effect_play(
 
 	error_ff =
 		FFEffectStart(
-			node->info.ff_effect_objs[effect->id],
+			node->info.ff_effect_objs[slot],
 			repeat,
 			0);
 
@@ -875,7 +875,7 @@ void punknobs_macos_haptics_effect_play(
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_FFDEVICERELEASEEFFECT);
+			PUNKNOBS_ERROR_BACKEND_MACOS_FFDEVICERELEASEEFFECT);
 		return;
 	}
 
@@ -895,14 +895,14 @@ void punknobs_macos_haptics_effect_stop(
 
 	error_ff =
 		FFEffectStop(
-			node->info.ff_effect_objs[effect->id]);
+			node->info.ff_effect_objs[slot]);
 
 	if (error_ff != FF_OK)
 	{
 		punknobs_error_throw(
 			context,
 			error,
-			PUNKNOBS_ERROR_MACOS_FFDEVICERELEASEEFFECT);
+			PUNKNOBS_ERROR_BACKEND_MACOS_FFDEVICERELEASEEFFECT);
 		return;
 	}
 
@@ -1019,8 +1019,68 @@ intptr_t punknobs_macos_input_get_punknobs_id(
 	struct macos_backend* backend = context->backend_context;
 	struct macos_input_info* info = input_info;
 
+	// get device registry id
+	io_service_t service = IOHIDDeviceGetService(info->device);
+
+	if (service == MACH_PORT_NULL)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_ALLOC);
+		return 0;
+	}
+
+	uint64_t device_id = 0;
+	kern_return_t error_kern = IORegistryEntryGetRegistryEntryID(service, &device_id);
+
+	if (error_kern != kIOReturnSuccess)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_ALLOC);
+		return 0;
+	}
+
+	// try to match registry id
+	struct macos_device_node* device_node = backend->devices;
+
+	while (device_node != NULL)
+	{
+		service = IOHIDDeviceGetService(device_node->info.device);
+
+		if (service == MACH_PORT_NULL)
+		{
+			punknobs_error_throw(
+				context,
+				error,
+				PUNKNOBS_ERROR_ALLOC);
+			return 0;
+		}
+
+		uint64_t node_id = 0;
+		error_kern = IORegistryEntryGetRegistryEntryID(service, &node_id);
+
+		if ((error_kern == kIOReturnSuccess) && (device_id == node_id))
+		{
+			break;
+		}
+
+		device_node = device_node->next;
+	}
+
+	if (device_node == NULL)
+	{
+		punknobs_error_throw(
+			context,
+			error,
+			PUNKNOBS_ERROR_DOMAIN);
+		return 0;
+	}
+
 	punknobs_error_ok(error);
-	return info->punknobs_id;
+	return device_node->info.punknobs_id;
 }
 
 void punknobs_macos_input_get_time(
