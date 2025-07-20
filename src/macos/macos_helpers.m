@@ -464,6 +464,17 @@ void macos_helper_device(
 		device_node->info = info;
 		device_node->next = backend->devices;
 		backend->devices = device_node;
+
+		// execute callback
+		context->device_callback(
+			context->device_custom_data,
+			&info,
+			&error);
+
+		if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+		{
+			return;
+		}
 	}
 	else
 	{
@@ -488,71 +499,132 @@ void macos_helper_device(
 
 		if (error_kern != kIOReturnSuccess)
 		{
-			punknobs_error_throw(
-				context,
-				&error,
-				PUNKNOBS_ERROR_ALLOC);
-			return;
-		}
-
-		// try to match registry id
-		while (device_node != NULL)
-		{
-			device_next = device_node->next;
-			service = IOHIDDeviceGetService(device_node->info.device);
-
-			if (service == MACH_PORT_NULL)
+			// clean all unplugged devices
+			while (device_node != NULL)
 			{
-				punknobs_error_throw(
-					context,
-					&error,
-					PUNKNOBS_ERROR_ALLOC);
-				return;
-			}
+				device_next = device_node->next;
+				service = IOHIDDeviceGetService(device_node->info.device);
 
-			uint64_t node_id = 0;
-			error_kern = IORegistryEntryGetRegistryEntryID(service, &node_id);
-
-			if ((error_kern == kIOReturnSuccess) && (device_id == node_id))
-			{
-				info.punknobs_id = (intptr_t) device_node;
-				info.manufacturer_name = device_node->info.manufacturer_name;
-				info.product_name = device_node->info.product_name;
-				info.vendor_id = device_node->info.vendor_id;
-				info.product_id = device_node->info.product_id;
-				info.plugged = false;
-				info.registered = device_node->info.registered;
-				info.device = device;
-				info.ff_service = device_node->info.ff_service;
-				info.ff_available = device_node->info.ff_available;
-				info.ff_effects_max = device_node->info.ff_effects_max;
-
-				if (device_prev == device_node)
+				if (service == MACH_PORT_NULL)
 				{
-					backend->devices = device_next;
+					punknobs_error_throw(
+						context,
+						&error,
+						PUNKNOBS_ERROR_ALLOC);
+					return;
+				}
+
+				uint64_t node_id = 0;
+				error_kern = IORegistryEntryGetRegistryEntryID(service, &node_id);
+
+				if (error_kern != kIOReturnSuccess)
+				{
+					info.punknobs_id = (intptr_t) device_node;
+					info.manufacturer_name = device_node->info.manufacturer_name;
+					info.product_name = device_node->info.product_name;
+					info.vendor_id = device_node->info.vendor_id;
+					info.product_id = device_node->info.product_id;
+					info.plugged = false;
+					info.registered = device_node->info.registered;
+					info.device = device;
+					info.ff_service = device_node->info.ff_service;
+					info.ff_available = device_node->info.ff_available;
+					info.ff_effects_max = device_node->info.ff_effects_max;
+
+					if (device_prev == device_node)
+					{
+						backend->devices = device_next;
+						device_prev = device_next;
+					}
+					else
+					{
+						device_prev->next = device_next;
+					}
+
+					free(device_node);
+
+					// execute callback
+					context->device_callback(
+						context->device_custom_data,
+						&info,
+						&error);
+
+					if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+					{
+						return;
+					}
+
+					device_node = device_next;
 				}
 				else
 				{
-					device_prev->next = device_next;
+					device_prev = device_node;
+					device_node = device_node->next;
+				}
+			}
+		}
+		else
+		{
+			// try to match registry id
+			while (device_node != NULL)
+			{
+				device_next = device_node->next;
+				service = IOHIDDeviceGetService(device_node->info.device);
+
+				if (service == MACH_PORT_NULL)
+				{
+					punknobs_error_throw(
+						context,
+						&error,
+						PUNKNOBS_ERROR_ALLOC);
+					return;
 				}
 
-				free(device_node);
-				break;
+				uint64_t node_id = 0;
+				error_kern = IORegistryEntryGetRegistryEntryID(service, &node_id);
+
+				if ((error_kern == kIOReturnSuccess) && (device_id == node_id))
+				{
+					info.punknobs_id = (intptr_t) device_node;
+					info.manufacturer_name = device_node->info.manufacturer_name;
+					info.product_name = device_node->info.product_name;
+					info.vendor_id = device_node->info.vendor_id;
+					info.product_id = device_node->info.product_id;
+					info.plugged = false;
+					info.registered = device_node->info.registered;
+					info.device = device;
+					info.ff_service = device_node->info.ff_service;
+					info.ff_available = device_node->info.ff_available;
+					info.ff_effects_max = device_node->info.ff_effects_max;
+
+					if (device_prev == device_node)
+					{
+						backend->devices = device_next;
+					}
+					else
+					{
+						device_prev->next = device_next;
+					}
+
+					free(device_node);
+
+					// execute callback
+					context->device_callback(
+						context->device_custom_data,
+						&info,
+						&error);
+
+					if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
+					{
+						return;
+					}
+
+					break;
+				}
+
+				device_prev = device_node;
+				device_node = device_node->next;
 			}
-
-			device_prev = device_node;
-			device_node = device_node->next;
 		}
-	}
-
-	// execute callback
-	context->device_callback(
-		context->device_custom_data,
-		&info,
-		&error);
-
-	if (punknobs_error_get_code(&error) != PUNKNOBS_ERROR_OK)
-	{
-		return;
 	}
 }
